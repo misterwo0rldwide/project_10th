@@ -73,23 +73,25 @@ DATASEG
 	; -- jump vars --
 	
 	;directions bools
-	Is_Going_up db 1
+	Is_Going_up db ?
 	Is_Going_down db ?
+	can_jump db 1 ; will sign if we are falling from a platform
 	
-	Max_height dw ?
-	Middle_Height dw ?
+	Max_height dw ? ; max height when jumping will be calculated once
+	Middle_Height dw ? ; to slow down mid jump
 	
-	bool_calc_max_height db 1
-	bool_jump_end db 0
+	bool_calc_max_height db 1 ; if we have calculated max height to not repeat
+	bool_jump_cont db 0 ; if we have not landed on the floor
+	bool_landed_block db 0
 	
 	; -- position --
 	
-	; -- cube --
+	;cube
 	Xpos dw 50
 	Ypos dw 143
 	
 	
-	; -- blocks --
+	; - blocks - 
 	;cube
 	
 	Xpos_Blocks dw 280
@@ -127,7 +129,7 @@ DATASEG
 			db 63, 63, 63, 63, 63, 63, 63, 63, 63, 63, 63, 63, 63, 63, 63, 63, 63, 63
 			db 63, 63, 63, 63, 63, 63, 63, 63, 63, 63, 63, 63, 63, 63, 63, 63, 63, 63
 			
-	; -- triangle block --
+	; - triangle block -
 	matrix_triangle db  -2,  -2,   -2,  -2,  -2,  -2,  -2,  -2,0ffh,0ffh,-2,  -2,   -2,  -2,  -2,  -2,    -2,-2
 					db  -2,  -2,   -2,  -2,  -2,  -2,  -2,0ffh,0,0,0ffh,-2,   -2,  -2,  -2,  -2,    -2,-2
 					db  -2,  -2,   -2,  -2,  -2,  -2,0ffh,0,  0,  0,  0,0ffh, -2,  -2,  -2,  -2,    -2,-2
@@ -888,7 +890,8 @@ proc Key_Check
 	mov ah, 1h
 	int 16h
 	
-	jz @@end_jump ; in case not pressed we check if we are jumping
+	jz @@end ; in case not pressed we check if we are jumping
+	
 	
 	mov ah, 0
 	int 16h
@@ -906,13 +909,9 @@ proc Key_Check
 	jmp @@end
 	
 	@@jump:
-	mov [bool_jump_end], 1
-	call Cube_Jump
-	jmp @@end
-
-	@@end_jump:
-	cmp [bool_jump_end], 1
-	je @@jump
+	cmp [can_jump], 1
+	jne @@end
+	mov [Is_Going_up], 1
 
 	@@end:	
 	POP_ALL
@@ -928,6 +927,45 @@ endp Key_Check
 ;================================================
 proc Check_down
 	PUSH_ALL
+
+	call Check_white_Under
+	cmp al, 1
+	je @@end_jump
+	
+	;to not go through the floor we will reduce the falling speed to one when close to the floors
+	cmp [Ypos], 153 ; if below continue to reducde by nine
+	jb @@down_nine
+	
+	inc [Ypos]
+	
+	call Check_white_Under ; checking twice to not loop twice
+	cmp al, 1
+	je @@end_jump
+	
+	jmp @@end
+	
+	@@down_nine:
+	add [Ypos], 9
+	jmp @@end
+
+	@@end_jump:
+	mov [can_jump], 1
+	mov [Is_Going_down], 0 ; finished going down
+	cmp [Ypos], 143
+	jb @@on_block
+	mov [bool_jump_cont], 0 ; end of jump
+	jmp @@end
+	
+	@@on_block:
+	mov [bool_landed_block], 1
+	@@end:
+	POP_ALL
+	ret
+endp Check_down
+
+
+;al will be one if there is a floor under us
+proc Check_white_Under
 	;left buttom check
 	mov ah,0Dh
 	mov cx,[Xpos]
@@ -935,7 +973,7 @@ proc Check_down
 	add dx, 18	
 	int 10H ; AL = COLOR
 	cmp al, 0ffh ; check white
-	je @@end_jump
+	je @@floor
 	
 	;right buttom check
 	mov ah,0Dh
@@ -945,26 +983,19 @@ proc Check_down
 	add cx, 17
 	int 10H ; AL = COLOR
 	cmp al, 0ffh ; check white
-	je @@end_jump
+	je @@floor
 	
-	;to not go through the floor we will reduce the falling speed to one when close to the floors
-	;cmp [Ypos], 153 ; if below continue to reducde by nine
-	jb @@reducde_nine
+	;did not see floor
 	
-	inc [Ypos]
-	jmp @@end
-	
-	@@reducde_nine:
-	add [Ypos], 9
+	xor al, al
 	jmp @@end
 
-	@@end_jump:
-	mov [Is_Going_down], 0
-	mov [bool_jump_end], 0
+	@@floor:
+	mov al, 1
+
 	@@end:
-	POP_ALL
 	ret
-endp Check_down
+endp Check_white_Under
 
 proc Check_Right
 	PUSH_ALL
@@ -989,54 +1020,28 @@ endp Check_Right
 proc Check_NoFloor
 	PUSH_ALL
 	
-	
-	;we will only check left side
-	;left buttom check
-	mov ah,0Dh
-	mov cx,[Xpos]
-	mov dx, [Ypos]
-	add dx, 18	
-	int 10H ; AL = COLOR
-	cmp al, 0ffh ; check white
-	je @@end ; we have a floor under
-	
-	;we need to go down - no floor
-	mov [bool_jump_end], 0
-	add [Ypos], 6
+	call Check_white_Under
+	cmp al, 1
+	je @@check_hit_floor
 	
 
+	;we need to go down - no floor
+	mov [can_jump], 0
+	add [Ypos], 6
+	jmp @@end
+	
+	@@check_hit_floor:
+	cmp [Ypos], 143
+	jne @@end
+	
+	;did hit floor
+	mov [can_jump], 1 ; we can jump again - in case we are falling we will cancel the jump movement so when when stop falling we cant jump
+	mov [bool_landed_block], 0
+	
 	@@end:
 	POP_ALL
 	ret
 endp Check_NoFloor
-
-;================================================
-; Description -  goes down when there is not white under the cube
-; INPUT: None
-; OUTPUT: cube goes down
-; Register Usage: None
-;================================================
-proc Cube_Jump
-	PUSH_ALL
-	
-	
-	call Cube_Ascend
-	cmp [Is_Going_up], 1 ; if finished the jump (not all jump just going up)
-	je @@end
-	
-	call Check_down
-	
-	;if jump has ended we need to reset bools
-	
-	cmp [bool_jump_end], 1
-	je @@end ; didn't end
-	
-	call Reset_Jump_Var
-	
-	@@end:
-	POP_ALL
-	ret
-endp Cube_Jump
 
 proc Reset_Jump_Var
 	mov [Is_Going_up], 1
@@ -1092,7 +1097,9 @@ proc Cube_Ascend
 	
 	@@stop_up:
 	mov [Is_Going_up], 0
+	mov [Is_Going_down], 1
 	mov [bool_calc_max_height], 1
+	mov [can_jump], 0
 	
 	@@end:
 	POP_ALL
@@ -1102,36 +1109,26 @@ endp Cube_Ascend
 ;checks if we need to go down 
 proc Cube_Move
 	PUSH_ALL
-
-	cmp [bool_jump_end], 1 ; if we are jumping
-	je @@end ; then go to end
 	
-	;if we are not jumping and we dont have floor under - fall down till there is floor (floor = color white 0ffh)
+	cmp [Is_Going_up], 1
+	je @@jump
 	
-	;left buttom check
-	mov ah,0Dh
-	mov cx,[Xpos]
-	mov dx, [Ypos]
-	add dx, 18	
-	int 10H ; AL = COLOR
-	cmp al, 0ffh ; check white
-	je @@end
+	cmp [Is_Going_down], 1
+	je @@go_down
 	
+	cmp [bool_landed_block], 1
+	je @@fall
 	
+	@@jump:
+	call Cube_Ascend
+	jmp @@end
 	
-	;right buttom check
-	mov ah,0Dh
-	mov cx,[Xpos]
-	mov dx, [Ypos]
-	add dx, 18
-	add cx, 17
-	int 10H ; AL = COLOR
-	cmp al, 0ffh ; check white
-	je @@end
+	@@go_down:
+	call Check_down
+	jmp @@end
 	
-	
-	add [Ypos], 6
-	
+	@@fall:
+	call Check_NoFloor
 	
 	@@end:
 	POP_ALL
