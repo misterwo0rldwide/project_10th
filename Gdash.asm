@@ -80,8 +80,7 @@ DATASEG
 	Max_height dw ? ; max height when jumping will be calculated once
 	Middle_Height dw ? ; to slow down mid jump
 	
-	bool_calc_max_height db 1 ; if we have calculated max height to not repeat
-	bool_jump_cont db 0 ; if we have not landed on the floor
+	bool_calc_max_height db 0 ; if we have calculated max height to not repeat
 	bool_landed_block db 0
 	
 	; -- position --
@@ -94,17 +93,18 @@ DATASEG
 	; - blocks - 
 	;cube
 	
-	Xpos_Blocks dw 280
+	Xpos_Blocks dw 330
 	Ypos_Blocks dw 143
 	Blocks_Alive db 1
 	
 	
 	;Triangle
-	Xpos_Triangle dw 262
-	Ypos_Triangle dw 151
+	Xpos_Triangle dw 200
+	Ypos_Triangle dw 116
+	Triangle_Alive db 1
 	
 	;Tower
-	Xpos_Tower dw 150
+	Xpos_Tower dw 200
 	Ypos_Tower dw ? ; ypos is calculated by how many blocks we want
 	
 	; -- drawing using matrix --
@@ -128,6 +128,9 @@ DATASEG
 			db 63, 63, 63, 63, 63, 63, 63, 63, 63, 63, 63, 63, 63, 63, 63, 63, 63, 63
 			db 63, 63, 63, 63, 63, 63, 63, 63, 63, 63, 63, 63, 63, 63, 63, 63, 63, 63
 			db 63, 63, 63, 63, 63, 63, 63, 63, 63, 63, 63, 63, 63, 63, 63, 63, 63, 63
+	
+	;erasing cube
+	matrix_erase_cube db 324 dup (?)
 			
 	; - triangle block -
 	matrix_triangle db  -2,  -2,   -2,  -2,  -2,  -2,  -2,  -2,0ffh,0ffh,-2,  -2,   -2,  -2,  -2,  -2,    -2,-2
@@ -199,7 +202,9 @@ DATASEG
 					db 0,0,0,0,0,0ffh
 					db 0,0,0,0,0,0ffh
 					db 0ffh,0ffh,0ffh,0ffh,0ffh,0ffh
-				
+	;erasing block
+	matrix_erase_blocks db 324 dup (?)
+	
 	
 	matrix dw ? ; holds the offset of the mtarix we want to print
 	
@@ -245,24 +250,35 @@ start:
 	xor ax, ax
 	int 16h
 	
+	call DrawBackground
+	call DrawBlock
+	call DrawCube
+	
 	draw:
 	call Key_Check
 	
 	cmp [IsExit], 1
 	je cont
-	call DrawBackground
+	;call DrawBackground
 	
-	mov cx, 2
-	call Draw_Tower
+	;erase
+	call Erase_Block
+	;call Erase_Cube
 	
-	call DrawCube
+	;sub [Xpos_Tower], 4
+	
+	;mov cx, 3
+	;call Draw_Tower
+	
 	;call Draw_Triangle
-	;call DrawBlock
-	sub [Xpos_Tower], 7
-	;sub [Xpos_Triangle], 7
-	call Cube_Move
+	sub [Xpos_Blocks], 4
 	
-	push 50 ; ms
+	call DrawBlock
+	
+	call Cube_Move
+	;sub [Xpos_Triangle], 4
+	
+	push 100 ; ms
 	call LoopDelay
 	jmp draw
 	
@@ -604,6 +620,54 @@ endProc:
     ret
 endp putMatrixInScreen
 
+; in dx how many cols 
+; in cx how many rows
+; in matrix - the offset of the var we want to copy to
+; in di start byte in screen (0 64000 -1)
+proc putMatrixInData
+	PUSH_ALL
+	
+	mov ax, 0A000h
+	mov es, ax
+	cld
+	
+	push dx
+	mov ax,cx
+	mul dx
+	mov bp,ax
+	pop dx
+	
+	
+	mov si,[matrix]
+	
+@@NextRow:	
+	push cx
+	
+	mov cx, dx
+	
+	@@copy_data:	; Copy line to the screen
+	mov al, [byte es:di]
+	cmp al, -2
+	je @@end ; if it is equal to minus one we need to skip it
+	mov [byte ds:si], al
+	@@end:
+	inc si
+	inc di
+	loop @@copy_data
+	
+	sub di,dx
+	add di, 320
+	
+	
+	pop cx
+	loop @@NextRow
+	
+	
+
+	
+	POP_ALL
+    ret
+endp putMatrixInData
 ;================================================
 ; Description -  draws cube using putMatrixInScreen and Xpos and Ypos variables
 ; INPUT: None
@@ -631,6 +695,8 @@ proc DrawCube
 	mov cx, 18 ; rows
 	mov dx, 18 ; cols
 	
+	call Copy_Background_Cube
+	
 	;put in var matrix offset var matrix1 (the cube itself) 
 	mov bx, offset matrix1
 	mov [matrix], bx
@@ -641,16 +707,49 @@ proc DrawCube
 	ret
 endp DrawCube
 
+proc Erase_Cube
+	PUSH_ALL
+	mov ax, [Ypos]
+	mov bx, 320
+	mul bx
+	
+	mov di, ax
+	add di, [Xpos]
+	
+	mov cx, 18
+	mov dx, 18
+	
+	mov bx, offset matrix_erase_cube
+	mov [matrix], bx
+	
+	call putMatrixInScreen
+	POP_ALL
+	ret
+endp Erase_Cube
+
+proc Copy_Background_Cube
+	PUSH_ALL
+	
+	mov bx, offset matrix_erase_cube ; the data will be stored here
+	mov [matrix], bx
+	
+	call putMatrixInData
+	POP_ALL
+	ret
+endp Copy_Background_Cube
+
 ;block - we need to check where is the cube to know how to print it
 ;we will print it with thirds - so it will enter smoothly into screen form right
 proc DrawBlock
 	PUSH_ALL
 	
-	cmp [Blocks_Alive], 0
-	je @@end
-	
 	cmp [Xpos_Blocks], 313 ; if this is out of screen dont draw
 	ja @@kill_block
+	
+	mov [Blocks_Alive], 1
+	
+	;firstly we will copy the background
+	call Copy_Background_Blocks
 	
 	;draw first half
 	
@@ -708,7 +807,6 @@ proc DrawBlock
 	call putMatrixInScreen
 	jmp @@end
 	
-	
 	@@kill_block:
 	mov [Blocks_Alive], 0
 	
@@ -717,9 +815,61 @@ proc DrawBlock
 	ret
 endp DrawBlock
 
+
+proc Erase_Block
+	PUSH_ALL
+
+	cmp [Blocks_Alive], 0
+	je @@end
+
+	mov ax, [Ypos_Blocks]
+	mov bx, 320
+	mul bx
+	
+	mov di, ax
+	add di, [Xpos_Blocks]
+	
+	mov cx, 18
+	mov dx, 18
+	
+	mov bx, offset matrix_erase_blocks
+	mov [matrix], bx
+	
+	call putMatrixInScreen
+
+	@@end:
+	POP_ALL
+	ret
+endp Erase_Block
+
+
+;move background to var
+
+proc Copy_Background_Blocks
+	PUSH_ALL
+	
+	mov ax, [Ypos_Blocks]
+	mov bx, 320
+	mul bx
+	
+	mov di, ax
+	add di, [Xpos_Blocks]
+	
+	mov cx, 18
+	mov dx, 18
+	
+	mov bx, offset matrix_erase_blocks ; the data will be stored in this var
+	mov [matrix], bx
+	
+	call putMatrixInData
+
+	POP_ALL
+	ret
+endp Copy_Background_Blocks
+
 ;draws blocks using the stack - mainly for drawing towers
-;bp + 4 = x
-;bp + 6 = y
+;[bp + 4] = x
+;[bp + 6] = y
 proc DrawBlock_Stack
 	PUSH_ALL_BP
 	
@@ -795,6 +945,12 @@ endp DrawBlock_Stack
 proc Draw_Triangle
 	PUSH_ALL
 	
+	cmp [Triangle_Alive], 0
+	je @@end
+	
+	cmp [Xpos_Triangle], 313 ; if this is out of screen dont draw
+	ja @@kill_triangle
+	
 	; di = 320 * Ypos + Xpos
 	mov ax, [Ypos_Triangle]
 	mov bx, 320
@@ -810,8 +966,12 @@ proc Draw_Triangle
 	mov [matrix], bx
 
 	call putMatrixInScreen
+	jmp @@end
+	
+	@@kill_triangle:
+	mov [Triangle_Alive], 0
 
-
+	@@end:
 	POP_ALL
 	ret
 endp Draw_Triangle
@@ -918,52 +1078,6 @@ proc Key_Check
 	ret
 endp Key_Check
 
-
-;================================================
-; Description -  goes down when there is not white under the cube
-; INPUT: None
-; OUTPUT: cube goes down
-; Register Usage: None
-;================================================
-proc Check_down
-	PUSH_ALL
-
-	call Check_white_Under
-	cmp al, 1
-	je @@end_jump
-	
-	;to not go through the floor we will reduce the falling speed to one when close to the floors
-	cmp [Ypos], 153 ; if below continue to reducde by nine
-	jb @@down_nine
-	
-	inc [Ypos]
-	
-	call Check_white_Under ; checking twice to not loop twice
-	cmp al, 1
-	je @@end_jump
-	
-	jmp @@end
-	
-	@@down_nine:
-	add [Ypos], 9
-	jmp @@end
-
-	@@end_jump:
-	mov [can_jump], 1
-	mov [Is_Going_down], 0 ; finished going down
-	cmp [Ypos], 143
-	jb @@on_block
-	mov [bool_jump_cont], 0 ; end of jump
-	jmp @@end
-	
-	@@on_block:
-	mov [bool_landed_block], 1
-	@@end:
-	POP_ALL
-	ret
-endp Check_down
-
-
 ;al will be one if there is a floor under us
 proc Check_white_Under
 	;left buttom check
@@ -1000,15 +1114,21 @@ endp Check_white_Under
 proc Check_Right
 	PUSH_ALL
 	
-	mov ah,0Dh
-	mov cx,[Xpos]
-	mov dx, [Ypos]
-	add cx, 18	
-	int 10H ; AL = COLOR
-	cmp al, 0ffh ; check white
-	je @@end
+	call Check_Blocks
+	cmp al, 1
+	je @@end_game
+	
+	;and we want to check if we hit a triangle
+	call Check_Triangle
+	cmp al, 1
+	je @@end_game
 
-	add [Xpos], 20
+	
+	jmp @@end
+	
+	@@end_game:
+	mov [IsExit], 1
+	
 	
 	@@end:
 	POP_ALL
@@ -1016,13 +1136,154 @@ proc Check_Right
 endp Check_Right
 
 
+;if we hit blocks al will be one
+proc Check_Blocks
+	;we will check three pixels to the right up and down
+	mov ah,0Dh
+	mov cx,[Xpos]
+	mov dx, [Ypos]
+	add cx, 18	
+	int 10H ; AL = COLOR
+	cmp al, 0ffh ; check white
+	je @@end_game
+	
+	mov ah, 0dh
+	inc cx
+	int 10h
+	cmp al, 0ffh ; check white
+	je @@end_game
+
+	mov ah, 0dh
+	inc cx
+	int 10h
+	cmp al, 0ffh ; check white
+	je @@end_game
+	
+	;now we go down
+	mov ah,0Dh
+	mov cx,[Xpos]
+	mov dx, [Ypos]
+	add cx, 18	
+	add dx, 17
+	int 10H ; AL = COLOR
+	cmp al, 0ffh ; check white
+	je @@end_game
+
+	mov ah, 0dh
+	inc cx
+	int 10h
+	cmp al, 0ffh ; check white
+	je @@end_game
+
+	mov ah, 0dh
+	inc cx
+	int 10h
+	cmp al, 0ffh ; check white
+	je @@end_game
+	
+	xor al, al
+	jmp @@end
+	
+	@@end_game:
+	mov al, 1
+	@@end:
+	ret
+endp Check_Blocks
+
+;if we hit a triange al will be one
+proc Check_Triangle
+
+	;check to the right down
+	call Check_Black_Right
+	cmp al, 1
+	je @@end_game
+	
+	;we will check if we hit from down, from right side and middle of the cube
+	mov cx, [Xpos]
+	add cx, 17
+	call Check_Black_Down
+	cmp al, 1
+	je @@end_game
+	
+	sub cx, 8
+	call Check_Black_Down
+	cmp al, 1
+	je @@end_game
+	
+	sub cx, 8
+	call Check_Black_Down
+	cmp al, 1
+	je @@end_game
+	
+	xor al, al
+	jmp @@end
+	
+	@@end_game:
+	mov al, 1
+	
+	@@end:
+	ret
+endp Check_Triangle
+
+proc Check_Black_Right
+	mov ah,0Dh
+	mov cx,[Xpos]
+	mov dx, [Ypos]
+	add cx, 18	
+	add dx, 17
+	int 10H ; AL = COLOR
+	cmp al, 0; check white
+	je @@end_game
+
+	mov ah, 0dh
+	inc cx
+	int 10h
+	cmp al, 0 ; check white
+	je @@end_game
+
+	mov ah, 0dh
+	inc cx
+	int 10h
+	cmp al, 0; check white
+	je @@end_game
+	
+	xor al, al
+	jmp @@end
+	
+	@@end_game:
+	mov al, 1
+	
+	@@end:
+	ret
+endp Check_Black_Right
+
+;in cx will be the x
+proc Check_Black_Down
+	;we will only check one dot under the cube, of more it will confuse with landing on blocks
+	mov ah,0Dh
+	mov dx, [Ypos]
+	add dx, 18
+	int 10H ; AL = COLOR
+	cmp al, 0; check white
+	je @@end_game
+	
+	xor al, al
+	jmp @@end
+	
+	@@end_game:
+	mov al, 1
+	@@end:
+	ret
+endp Check_Black_Down
+
 ;in case the jump has ended and we are not on the floor
+;this will check if we have floor under us while falling from a block - when not jumpimg
 proc Check_NoFloor
 	PUSH_ALL
 	
 	call Check_white_Under
-	cmp al, 1
-	je @@check_hit_floor
+	cmp al, 1 ; if we have floor under
+	je @@check_hit_floor ; then check if it is the floor
 	
 
 	;we need to go down - no floor
@@ -1031,25 +1292,17 @@ proc Check_NoFloor
 	jmp @@end
 	
 	@@check_hit_floor:
-	cmp [Ypos], 143
+	cmp [Ypos], 143 ; if it is the floor end the fall
 	jne @@end
 	
 	;did hit floor
 	mov [can_jump], 1 ; we can jump again - in case we are falling we will cancel the jump movement so when when stop falling we cant jump
-	mov [bool_landed_block], 0
+	mov [bool_landed_block], 0 ; reset bools
 	
 	@@end:
 	POP_ALL
 	ret
 endp Check_NoFloor
-
-proc Reset_Jump_Var
-	mov [Is_Going_up], 1
-	mov [Is_Going_down], ?
-	mov [Max_height], ?
-	mov [bool_calc_max_height],  1
-	ret
-endp Reset_Jump_Var
 
 ;================================================
 ; Description -  goes up until going 30 vertical up
@@ -1063,7 +1316,7 @@ proc Cube_Ascend
 	cmp [Is_Going_up], 0 ; checks if we even go up
 	je @@end ; if not go to end
 	
-	cmp [bool_calc_max_height], 0; if already we calculated the max height
+	cmp [bool_calc_max_height], 1; if already we calculated the max height
 	je @@go_up
 	;calculating max height - ypos - 45
 	mov ax, [Ypos]
@@ -1073,7 +1326,7 @@ proc Cube_Ascend
 	
 	sub ax, 24 ; top height
 	mov [Max_height], ax
-	mov [bool_calc_max_height], 0 ; signs that we calculated it
+	mov [bool_calc_max_height], 1 ; signs that we calculated it
 	
 	@@go_up:
 	mov ax, [Max_height]
@@ -1096,9 +1349,9 @@ proc Cube_Ascend
 	jmp @@end
 	
 	@@stop_up:
-	mov [Is_Going_up], 0
-	mov [Is_Going_down], 1
-	mov [bool_calc_max_height], 1
+	mov [Is_Going_up], 0 ; signs that we stop ascending
+	mov [Is_Going_down], 1 ; we now can go down - this can't be controlled by the player, only the game controlls this bool
+	mov [bool_calc_max_height], 0
 	mov [can_jump], 0
 	
 	@@end:
@@ -1106,29 +1359,86 @@ proc Cube_Ascend
 	ret
 endp Cube_Ascend
 
-;checks if we need to go down 
+
+;================================================
+; Description -  goes down when there is not white under the cube
+; INPUT: None
+; OUTPUT: cube goes down
+; Register Usage: None
+;================================================
+proc Descending
+	PUSH_ALL
+
+	call Check_white_Under
+	cmp al, 1
+	je @@end_jump
+	
+	;to not go through the floor we will reduce the falling speed to one when close to the floors
+	cmp [Ypos], 153 ; if below continue to reducde by nine
+	jb @@down_nine
+	
+	inc [Ypos]
+	
+	call Check_white_Under ; checking twice to not loop twice
+	cmp al, 1
+	je @@end_jump
+	
+	jmp @@end
+	
+	@@down_nine:
+	add [Ypos], 9
+	jmp @@end
+
+	@@end_jump:
+	mov [can_jump], 1
+	mov [Is_Going_down], 0 ; finished going down
+	cmp [Ypos], 143
+	jb @@on_block
+	jmp @@end
+	
+	@@on_block:
+	mov [bool_landed_block], 1
+	@@end:
+	POP_ALL
+	ret
+endp Descending
+
+;main function of the cube
+;checks the state of the cube with bools, and starts each function
 proc Cube_Move
 	PUSH_ALL
 	
-	cmp [Is_Going_up], 1
+	call Check_Right ; if we got into a block and died
+	cmp [IsExit], 1
+	je @@end ; if so skip all the parts and end the game
+	
+	cmp [Is_Going_up], 1 ; if we go up then continue ascending
 	je @@jump
 	
-	cmp [Is_Going_down], 1
+	cmp [Is_Going_down], 1 ; if we go down then countinue descending
 	je @@go_down
 	
-	cmp [bool_landed_block], 1
+	cmp [bool_landed_block], 1 ; if we landed on block then we need to fall
 	je @@fall
 	
+	jmp @@end
+	
 	@@jump:
+	call Erase_Cube
 	call Cube_Ascend
+	call DrawCube
 	jmp @@end
 	
 	@@go_down:
-	call Check_down
+	call Erase_Cube
+	call Descending
+	call DrawCube
 	jmp @@end
 	
 	@@fall:
+	call Erase_Cube
 	call Check_NoFloor
+	call DrawCube
 	
 	@@end:
 	POP_ALL
