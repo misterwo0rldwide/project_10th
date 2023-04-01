@@ -101,8 +101,8 @@ DATASEG
 	
 	
 	;Triangle
-	Xpos_Triangle dw 270
-	Ypos_Triangle dw 134
+	Xpos_Triangle dw 420
+	Ypos_Triangle dw 152
 	Triangle_Alive db 1
 	
 	;Tower
@@ -269,7 +269,7 @@ start:
 	call DrawBlock
 	call DrawCube
 	call Draw_Triangle
-	mov cx, 2
+	mov cx, 3
 	mov [Height_Tower], cx
 	call Draw_Tower
 	
@@ -295,9 +295,9 @@ start:
 	mov cx, [Height_Tower]
 	call Draw_Tower
 	
-	call Draw_Triangle
-	
 	call DrawBlock
+	
+	call Draw_Triangle
 	
 	call Cube_Move
 	
@@ -1301,6 +1301,7 @@ proc Check_white_Under
 	ret
 endp Check_white_Under
 
+
 proc Check_Right
 	PUSH_ALL
 	
@@ -1324,7 +1325,6 @@ proc Check_Right
 	POP_ALL
 	ret
 endp Check_Right
-
 
 ;if we hit blocks al will be one
 proc Check_Blocks
@@ -1381,54 +1381,68 @@ proc Check_Blocks
 endp Check_Blocks
 
 ;if we hit a triange al will be one
+;we will check left side down and right side down
 proc Check_Triangle
-
-	;check to the right down
-	call Check_Black_Right
-	cmp al, 1
-	je @@end_game
 	
-	;now we check if we are on the ground or on a block
-	cmp [Ypos], 143
-	je @@end
+	;we will check two points - left down and right down (collision check)
 	
-	cmp [Is_On_Block], 1
-	je @@end
+	;save triangle place
+	mov ax, [Xpos_Triangle] ; left side of triangle
+	mov bx, [Ypos_Triangle] ; top of triangle
 	
-	;we will check if we hit from down, from right side and middle of the cube
-	;only when jumping and landing on block
+	;side of triangle
+	mov di, ax 
+	add di, 17 ;end of triangle in x
 	
-	cmp [Is_Falling], 1
-	je @@cont
+	mov si, bx
+	add si, 8 ; end of triangle in y
 	
-	cmp [Is_Going_down], 1
-	je @@cont
-	
-	jmp @@end
-	
-	@@cont:
+	;left down
 	mov cx, [Xpos]
-	add cx, 20
-	call Check_Black_Down
-	cmp al, 1
-	je @@end_game
+	mov dx, [Ypos]
+	add dx, 18
 	
-	mov si, [Xpos]
-	dec si
+	cmp cx, ax
+	jb @@check2 ; if below it means our left side of the cube is not on the triangle - to his left side
 	
-	@@check_under:
-	dec cx
-	call Check_Black_Down
-	cmp al, 1
-	je @@end_game
-	cmp cx, si
-	jae @@check_under
+	cmp cx, di
+	ja @@check2 ; if above it means our left side of the cube is not on the triangle - to ihs right side
 	
+	;if we got here it means our x is in the triangle x area
+	;now we need to check the y
+	
+	cmp dx, bx
+	jb @@check2 ; if below it means we are above the triangle
+	
+	;we can't really be under a triangle so we dont need to check under
+	
+	;if it got here it means we are on the triangle
+	jmp @@end_game
+
+	@@check2:
+	add cx, 17
+	
+	;now we will just copy the above
+	cmp cx, ax
+	jb @@end_check ;if the cube is left to the triangle
+	
+	cmp cx, di
+	ja @@end_check ; if the cube is right to the triangle
+	
+	cmp dx, bx
+	jb @@end_check ; if the cube is above the triangle
+	
+	;if it got here it means we are in the triangle
+	jmp @@end_game
+	
+	
+
+	@@end_check:
 	xor al, al
 	jmp @@end
+	
 	@@end_game:
 	mov al, 1
-	
 	
 	@@end:
 	ret
