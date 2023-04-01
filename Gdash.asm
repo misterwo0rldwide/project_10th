@@ -101,12 +101,12 @@ DATASEG
 	
 	
 	;Triangle
-	Xpos_Triangle dw 420
-	Ypos_Triangle dw 152
+	Xpos_Triangle dw 270
+	Ypos_Triangle dw 134
 	Triangle_Alive db 1
 	
 	;Tower
-	Xpos_Tower dw 320
+	Xpos_Tower dw 420
 	Ypos_Tower dw ? ; ypos is calculated by how many blocks we want
 	Height_Tower dw ?
 	Tower_Alive db 1
@@ -150,65 +150,25 @@ DATASEG
 	;erasing the triangle
 	matrix_erase_triangle db 162 dup (?)
 	
-	; -- blocks thirds -- 
-	;first third
-	matrix_blocks1  db 0ffh,0ffh,0ffh,0ffh,0ffh,0ffh
-					db 0ffh,0,0,0,0,0
-					db 0ffh,0,0,0,0,0
-					db 0ffh,0,0,0,0,0
-					db 0ffh,0,0,0,0,0
-					db 0ffh,0,0,0,0,0
-					db 0ffh,0,0,0,0,0
-					db 0ffh,0,0,0,0,0
-					db 0ffh,0,0,0,0,0
-					db 0ffh,0,0,0,0,0
-					db 0ffh,0,0,0,0,0
-					db 0ffh,0,0,0,0,0
-					db 0ffh,0,0,0,0,0
-					db 0ffh,0,0,0,0,0
-					db 0ffh,0,0,0,0,0
-					db 0ffh,0,0,0,0,0
-					db 0ffh,0,0,0,0,0
-					db 0ffh,0ffh,0ffh,0ffh,0ffh,0ffh
-	
-	;second third
-	matrix_blocks2  db 0ffh,0ffh,0ffh,0ffh,0ffh,0ffh
-					db 0,0,0,0,0,0
-					db 0,0,0,0,0,0
-					db 0,0,0,0,0,0
-					db 0,0,0,0,0,0
-					db 0,0,0,0,0,0
-					db 0,0,0,0,0,0
-					db 0,0,0,0,0,0
-					db 0,0,0,0,0,0
-					db 0,0,0,0,0,0
-					db 0,0,0,0,0,0
-					db 0,0,0,0,0,0
-					db 0,0,0,0,0,0
-					db 0,0,0,0,0,0
-					db 0,0,0,0,0,0
-					db 0,0,0,0,0,0
-					db 0,0,0,0,0,0
-					db 0ffh,0ffh,0ffh,0ffh,0ffh,0ffh
-	;3 third
-	matrix_blocks3  db 0ffh,0ffh,0ffh,0ffh,0ffh,0ffh
-					db 0,0,0,0,0,0ffh
-					db 0,0,0,0,0,0ffh
-					db 0,0,0,0,0,0ffh
-					db 0,0,0,0,0,0ffh
-					db 0,0,0,0,0,0ffh
-					db 0,0,0,0,0,0ffh
-					db 0,0,0,0,0,0ffh
-					db 0,0,0,0,0,0ffh
-					db 0,0,0,0,0,0ffh
-					db 0,0,0,0,0,0ffh
-					db 0,0,0,0,0,0ffh
-					db 0,0,0,0,0,0ffh
-					db 0,0,0,0,0,0ffh
-					db 0,0,0,0,0,0ffh
-					db 0,0,0,0,0,0ffh
-					db 0,0,0,0,0,0ffh
-					db 0ffh,0ffh,0ffh,0ffh,0ffh,0ffh
+	; -- blocks --
+	matrix_blocks  db 0ffh,0ffh,0ffh,0ffh,0ffh,0ffh,0ffh,0ffh,0ffh,0ffh,0ffh,0ffh,0ffh,0ffh,0ffh,0ffh,0ffh,0ffh
+					db 0ffh,  0,   0,   0,   0,   0,   0,   0,   0,   0,    0,0   ,   0,   0,   0,   0,   0,0ffh
+					db 0ffh,  0,   0,   0,   0,   0,   0,   0,   0,   0,    0,0   ,   0,   0,   0,   0,   0,0ffh
+					db 0ffh,  0,   0,   0,   0,   0,   0,   0,   0,   0,    0,0   ,   0,   0,   0,   0,   0,0ffh
+					db 0ffh,  0,   0,   0,   0,   0,   0,   0,   0,   0,    0,0   ,   0,   0,   0,   0,   0,0ffh
+					db 0ffh,  0,   0,   0,   0,   0,   0,   0,   0,   0,    0,0   ,   0,   0,   0,   0,   0,0ffh
+					db 0ffh,  0,   0,   0,   0,   0,   0,   0,   0,   0,    0,0   ,   0,   0,   0,   0,   0,0ffh
+					db 0ffh,  0,   0,   0,   0,   0,   0,   0,   0,   0,    0,0   ,   0,   0,   0,   0,   0,0ffh
+					db 0ffh,  0,   0,   0,   0,   0,   0,   0,   0,   0,    0,0   ,   0,   0,   0,   0,   0,0ffh
+					db 0ffh,  0,   0,   0,   0,   0,   0,   0,   0,   0,    0,0   ,   0,   0,   0,   0,   0,0ffh
+					db 0ffh,  0,   0,   0,   0,   0,   0,   0,   0,   0,    0,0   ,   0,   0,   0,   0,   0,0ffh
+					db 0ffh,  0,   0,   0,   0,   0,   0,   0,   0,   0,    0,0   ,   0,   0,   0,   0,   0,0ffh
+					db 0ffh,  0,   0,   0,   0,   0,   0,   0,   0,   0,    0,0   ,   0,   0,   0,   0,   0,0ffh
+					db 0ffh,  0,   0,   0,   0,   0,   0,   0,   0,   0,    0,0   ,   0,   0,   0,   0,   0,0ffh
+					db 0ffh,  0,   0,   0,   0,   0,   0,   0,   0,   0,    0,0   ,   0,   0,   0,   0,   0,0ffh
+					db 0ffh,  0,   0,   0,   0,   0,   0,   0,   0,   0,    0,0   ,   0,   0,   0,   0,   0,0ffh
+					db 0ffh,  0,   0,   0,   0,   0,   0,   0,   0,   0,    0,0   ,   0,   0,   0,   0,   0,0ffh
+					db 0ffh,0ffh,0ffh,0ffh,0ffh,0ffh,0ffh,0ffh,0ffh,0ffh,0ffh,0ffh,0ffh,0ffh,0ffh,0ffh,0ffh,0ffh
 	;erasing block
 	matrix_erase_blocks db 324 dup (?)
 	;erase tower
@@ -269,7 +229,7 @@ start:
 	call DrawBlock
 	call DrawCube
 	call Draw_Triangle
-	mov cx, 3
+	mov cx, 2
 	mov [Height_Tower], cx
 	call Draw_Tower
 	
@@ -286,11 +246,11 @@ start:
 	call Erase_Tower
 	;call Erase_Cube
 	
-	sub [Xpos_Triangle], 4
+	sub [Xpos_Triangle], 5
 	
-	sub [Xpos_Tower], 4
+	sub [Xpos_Tower], 5
 	
-	sub [Xpos_Blocks], 4
+	sub [Xpos_Blocks], 5
 	
 	mov cx, [Height_Tower]
 	call Draw_Tower
@@ -774,12 +734,7 @@ proc DrawBlock
 	
 	mov [Blocks_Alive], 1
 	
-	;firstly we will copy the background
-	call Copy_Background_Blocks
-	
-	;draw first half
-	
-	;di = Ypos * 320 + Xpos (place on screen)
+	;now we calculate the place
 	mov ax, [Ypos_Blocks]
 	mov bx, 320
 	mul bx
@@ -787,48 +742,14 @@ proc DrawBlock
 	mov di, ax
 	add di, [Xpos_Blocks]
 	
-	;size:
-	mov cx, 18 ; rows
-	mov dx, 6 ; cols
+	mov cx, 18
+	mov dx, 18
 	
-	;put in var matrix offset var matrix1 (the cube itself) 
-	mov bx, offset matrix_blocks1
-	mov [matrix], bx
+	;firstly we will copy the background
+	call Copy_Background_Blocks
 	
-	push di
-	call putMatrixInScreen
-	pop di
-	
-	cmp [Xpos_Blocks], 307
-	ja @@end
-	
-	;second half
-	add di, 6
-	
-	;size:
-	mov cx, 18 ; rows
-	mov dx, 6 ; cols
-	
-	;put in var matrix offset var matrix1 (the cube itself) 
-	mov bx, offset matrix_blocks2
-	mov [matrix], bx
-	
-	push di
-	call putMatrixInScreen
-	pop di
-	cmp [Xpos_Blocks], 301
-	ja @@end
-	
-	;third half
-	add di, 6
-	
-	;size:
-	mov cx, 18 ; rows
-	mov dx, 6 ; cols
-	
-	;put in var matrix offset var matrix1 (the cube itself) 
-	mov bx, offset matrix_blocks3
-	mov [matrix], bx
+	mov bx, offset matrix_blocks
+	mov [matrix], bx 
 	
 	call putMatrixInScreen
 	jmp @@end
@@ -874,16 +795,6 @@ endp Erase_Block
 proc Copy_Background_Blocks
 	PUSH_ALL
 	
-	mov ax, [Ypos_Blocks]
-	mov bx, 320
-	mul bx
-	
-	mov di, ax
-	add di, [Xpos_Blocks]
-	
-	mov cx, 18
-	mov dx, 18
-	
 	mov bx, offset matrix_erase_blocks ; the data will be stored in this var
 	mov [matrix], bx
 	
@@ -902,62 +813,24 @@ proc DrawBlock_Stack
 	cmp [word bp + 4], 313 ; if this is out of screen dont draw
 	ja @@kill_block
 	
-	;draw first half
+	mov [Blocks_Alive], 1
 	
-	;di = Ypos * 320 + Xpos (place on screen)
-	mov ax, [bp + 6]
+	;now we calculate the place
+	mov ax, [word bp + 6]
 	mov bx, 320
 	mul bx
 	
 	mov di, ax
-	add di, [bp + 4]
+	add di, [word bp + 4]
 	
-	;size:
-	mov cx, 18 ; rows
-	mov dx, 6 ; cols
+	mov cx, 18
+	mov dx, 18
 	
-	;put in var matrix offset var matrix1 (the cube itself) 
-	mov bx, offset matrix_blocks1
-	mov [matrix], bx
-	
-	push di
-	call putMatrixInScreen
-	pop di
-	
-	cmp [word bp + 4], 307
-	ja @@end
-	
-	;second half
-	add di, 6
-	
-	;size:
-	mov cx, 18 ; rows
-	mov dx, 6 ; cols
-	
-	;put in var matrix offset var matrix1 (the cube itself) 
-	mov bx, offset matrix_blocks2
-	mov [matrix], bx
-	
-	push di
-	call putMatrixInScreen
-	pop di
-	cmp [word bp + 4], 301
-	ja @@end
-	
-	;third half
-	add di, 6
-	
-	;size:
-	mov cx, 18 ; rows
-	mov dx, 6 ; cols
-	
-	;put in var matrix offset var matrix1 (the cube itself) 
-	mov bx, offset matrix_blocks3
+	mov bx, offset matrix_blocks
 	mov [matrix], bx
 	
 	call putMatrixInScreen
 	jmp @@end
-	
 	
 	@@kill_block:
 	mov [Blocks_Alive], 0
@@ -1402,6 +1275,7 @@ proc Check_Triangle
 	mov dx, [Ypos]
 	add dx, 18
 	
+	sub di, 4
 	cmp cx, ax
 	jb @@check2 ; if below it means our left side of the cube is not on the triangle - to his left side
 	
@@ -1418,9 +1292,12 @@ proc Check_Triangle
 	
 	;if it got here it means we are on the triangle
 	jmp @@end_game
-
+	
+	;right side
 	@@check2:
 	add cx, 17
+	add di, 4
+	sub ax, 3
 	
 	;now we will just copy the above
 	cmp cx, ax
