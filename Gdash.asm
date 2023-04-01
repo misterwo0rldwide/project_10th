@@ -286,11 +286,11 @@ start:
 	call Erase_Tower
 	;call Erase_Cube
 	
-	sub [Xpos_Triangle], 6
+	sub [Xpos_Triangle], 4
 	
-	sub [Xpos_Tower], 6
+	sub [Xpos_Tower], 4
 	
-	sub [Xpos_Blocks], 6
+	sub [Xpos_Blocks], 4
 	
 	mov cx, [Height_Tower]
 	call Draw_Tower
@@ -1573,11 +1573,11 @@ proc Cube_Ascend
 	je @@go_up
 	;calculating max height - ypos - 45
 	mov ax, [Ypos]
-	sub ax, 21 ; middle height
+	sub ax, 48 ; middle height
 	
 	mov [Middle_Height], ax
 	
-	sub ax, 24 ; top height
+	sub ax, 6 ; top height
 	mov [Max_height], ax
 	mov [bool_calc_max_height], 1 ; signs that we calculated it
 	
@@ -1593,12 +1593,12 @@ proc Cube_Ascend
 	jbe @@slow
 	
 	;if we havn't reached the point
-	sub [Ypos], 7
+	sub [Ypos], 6
 	jmp @@end
 	
 	@@slow:
 	
-	sub [Ypos], 6
+	sub [Ypos], 3
 	jmp @@end
 	
 	@@stop_up:
