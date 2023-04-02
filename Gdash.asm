@@ -101,8 +101,8 @@ DATASEG
 	
 	
 	;Triangle
-	Xpos_Triangle dw 270
-	Ypos_Triangle dw 134
+	Xpos_Triangle dw 447
+	Ypos_Triangle dw 152
 	Triangle_Alive db 1
 	
 	;Tower
@@ -112,26 +112,6 @@ DATASEG
 	Tower_Alive db 1
 	
 	; -- drawing using matrix --
-	
-	;main cube - the player
-	matrix1 db 63, 63, 63, 63, 63, 63, 63, 63, 63, 63, 63, 63, 63, 63, 63, 63, 63, 63
-			db 63, 63, 63, 63, 63, 63, 63, 63, 63, 63, 63, 63, 63, 63, 63, 63, 63, 63
-			db 63, 63, 63, 63, 63, 63, 63, 63, 63, 63, 63, 63, 63, 63, 63, 63, 63, 63
-			db 63, 63, 63, -2, -2, -2, -2, -2, -2, -2, -2, -2, -2, -2, -2, 63, 63, 63
-			db 63, 63, 63, -2, -2, -2, -2, -2, -2, -2, -2, -2, -2, -2, -2, 63, 63, 63
-			db 63, 63, 63, -2, -2, -2, -2, -2, -2, -2, -2, -2, -2, -2, -2, 63, 63, 63
-			db 63, 63, 63, -2, -2, -2,  9,  9,  9,  9,  9,  9, -2, -2, -2, 63, 63, 63
-			db 63, 63, 63, -2, -2, -2,  9,  9,  9,  9,  9,  9, -2, -2, -2, 63, 63, 63
-			db 63, 63, 63, -2, -2, -2,  9,  9,  9,  9,  9,  9, -2, -2, -2, 63, 63, 63
-			db 63, 63, 63, -2, -2, -2,  9,  9,  9,  9,  9,  9, -2, -2, -2, 63, 63, 63
-			db 63, 63, 63, -2, -2, -2,  9,  9,  9,  9,  9,  9, -2, -2, -2, 63, 63, 63
-			db 63, 63, 63, -2, -2, -2, -2, -2, -2, -2, -2, -2, -2, -2, -2, 63, 63, 63
-			db 63, 63, 63, -2, -2, -2, -2, -2, -2, -2, -2, -2, -2, -2, -2, 63, 63, 63
-			db 63, 63, 63, -2, -2, -2, -2, -2, -2, -2, -2, -2, -2, -2, -2, 63, 63, 63
-			db 63, 63, 63, -2, -2, -2, -2, -2, -2, -2, -2, -2, -2, -2, -2, 63, 63, 63
-			db 63, 63, 63, 63, 63, 63, 63, 63, 63, 63, 63, 63, 63, 63, 63, 63, 63, 63
-			db 63, 63, 63, 63, 63, 63, 63, 63, 63, 63, 63, 63, 63, 63, 63, 63, 63, 63
-			db 63, 63, 63, 63, 63, 63, 63, 63, 63, 63, 63, 63, 63, 63, 63, 63, 63, 63
 	
 	;erasing cube
 	matrix_erase_cube db 324 dup (?)
@@ -208,6 +188,10 @@ DATASEG
 	
 	FileName_background db 'back.bmp' ,0
 	FileName_start db 'start.bmp', 0
+	FileName_cube db 'cube.bmp', 0
+	;cube rotation frames
+	FileName_cube30 db 'cube30.bmp', 0
+	FileName_cube60 db 'cube60.bmp', 0
 ; --------------------------
 
 CODESEG
@@ -232,6 +216,7 @@ start:
 	mov cx, 2
 	mov [Height_Tower], cx
 	call Draw_Tower
+
 	
 	draw:
 	call Key_Check
@@ -244,7 +229,6 @@ start:
 	call Erase_Block
 	call Erase_Triangle
 	call Erase_Tower
-	;call Erase_Cube
 	
 	sub [Xpos_Triangle], 5
 	
@@ -460,7 +444,16 @@ proc ShowBMP
 	cld ; Clear direction flag, for movsb
 	mov cx,[BmpColSize]  
 	mov si,offset ScrLine
-	rep movsb ; Copy line to the screen
+	;rep movsb ; Copy line to the screen
+	@@put_screen:
+	mov al, [ds:si]
+	cmp al, 1
+	je @@dont_draw
+	mov [es:di], al
+	@@dont_draw:
+	inc di
+	inc si
+	loop @@put_screen
 	
 	pop dx
 	pop cx
@@ -507,8 +500,8 @@ proc DrawPictureBmp
 	
 	mov ax, [bp + 10];x
 	mov bx, [bp + 8];y
-	mov cx, [bp + 6]; col size
-	mov si, [bp + 4]; row size
+	mov cx, [bp + 6]; length
+	mov si, [bp + 4]; height
 	
 	mov [BmpLeft],ax
 	mov [BmpTop],bx
@@ -680,15 +673,46 @@ proc DrawCube
 	
 	call Copy_Background_Cube ; we will copy the background firstly
 	
-	;put in var matrix offset var matrix1 (the cube itself) 
-	mov bx, offset matrix1
-	mov [matrix], bx
-	
-	call putMatrixInScreen
+	;put a bmp picture of cube
+	call Pick_bmp_by_height
 	
 	POP_ALL
 	ret
 endp DrawCube
+
+;for rotation - we check the height and then print the picture
+proc Pick_bmp_by_height
+	PUSH_ALL
+	
+	dec [Ypos]
+	push [Xpos]
+	push [Ypos]
+	inc [Ypos]
+	mov ax, 18
+	push ax
+	push ax
+
+	cmp [can_jump], 1 ; if on ground or block
+	jne @@in_air
+	
+	cmp [Is_Going_up], 1
+	je @@in_air
+	
+	mov dx, offset FileName_cube
+	jmp @@print
+
+	@@in_air:
+	mov dx, offset FileName_cube30
+	
+	
+
+
+	@@print:
+	call DrawPictureBmp
+
+	POP_ALL
+	ret
+endp Pick_bmp_by_height
 
 ;we will draw the saved background on the cube to erase it
 proc Erase_Cube
@@ -729,7 +753,7 @@ endp Copy_Background_Cube
 proc DrawBlock
 	PUSH_ALL
 	
-	cmp [Xpos_Blocks], 313 ; if this is out of screen dont draw
+	cmp [Xpos_Blocks], 301 ; if this is out of screen dont draw
 	ja @@kill_block
 	
 	mov [Blocks_Alive], 1
@@ -810,7 +834,7 @@ endp Copy_Background_Blocks
 proc DrawBlock_Stack
 	PUSH_ALL_BP
 	
-	cmp [word bp + 4], 313 ; if this is out of screen dont draw
+	cmp [word bp + 4], 301 ; if this is out of screen dont draw
 	ja @@kill_block
 	
 	mov [Blocks_Alive], 1
@@ -844,7 +868,7 @@ endp DrawBlock_Stack
 proc Draw_Triangle
 	PUSH_ALL
 	
-	cmp [Xpos_Triangle], 313 ; if this is out of screen dont draw
+	cmp [Xpos_Triangle], 301 ; if this is out of screen dont draw
 	ja @@kill_triangle
 	
 	mov [Triangle_Alive], 1
@@ -928,7 +952,7 @@ proc Draw_Tower
 	PUSH_ALL
 	
 	
-	cmp [Xpos_Tower], 313
+	cmp [Xpos_Tower], 301
 	ja @@kill_tower
 	
 	;we will save the tower height
@@ -1448,7 +1472,7 @@ proc Cube_Ascend
 	
 	cmp [bool_calc_max_height], 1; if already we calculated the max height
 	je @@go_up
-	;calculating max height - ypos - 45
+	;calculating max height - ypos - 54
 	mov ax, [Ypos]
 	sub ax, 48 ; middle height
 	
