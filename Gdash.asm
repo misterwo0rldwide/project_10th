@@ -71,19 +71,24 @@ DATASEG
 	IsExit db 0
 	
 	; -- jump vars --
+	can_jump db 1 ; will sign if we are falling from a platform
 	
-	;directions bools
+	;rotation
+	timeInAir db 0
+	
+	;directions bools 
 	Is_Going_up db ?
 	Is_Going_down db ?
 	Is_Falling  db ?
-	can_jump db 1 ; will sign if we are falling from a platform
 	
+	;height calculation
 	Max_height dw ? ; max height when jumping will be calculated once
 	Middle_Height dw ? ; to slow down mid jump
-	
 	bool_calc_max_height db 0 ; if we have calculated max height to not repeat
-	bool_landed_block db 0
-	Is_On_Block db 0
+	
+	
+	bool_landed_block db 0 ; if landed on block
+	Is_On_Block db 0 ; if is now on block
 	
 	; -- position --
 	
@@ -106,7 +111,7 @@ DATASEG
 	Triangle_Alive db 1
 	
 	;Tower
-	Xpos_Tower dw 420
+	Xpos_Tower dw 320
 	Ypos_Tower dw ? ; ypos is calculated by how many blocks we want
 	Height_Tower dw ?
 	Tower_Alive db 1
@@ -189,9 +194,16 @@ DATASEG
 	FileName_background db 'back.bmp' ,0
 	FileName_start db 'start.bmp', 0
 	FileName_cube db 'cube.bmp', 0
+	
 	;cube rotation frames
+	FileName_cube10 db 'cube10.bmp', 0
+	FileName_cube20 db 'cube20.bmp', 0
 	FileName_cube30 db 'cube30.bmp', 0
+	FileName_cube40 db 'cube40.bmp', 0
+	FileName_cube50 db 'cube50.bmp', 0
 	FileName_cube60 db 'cube60.bmp', 0
+	FileName_cube70 db 'cube70.bmp', 0
+	FileName_cube80 db 'cube80.bmp', 0
 ; --------------------------
 
 CODESEG
@@ -206,17 +218,19 @@ start:
 	
 	call DrawStartScreen
 	
-	xor ax, ax
-	int 16h
+	;mouse show
+	call MouseShow
 	
 	call DrawBackground
 	call DrawBlock
 	call DrawCube
 	call Draw_Triangle
-	mov cx, 2
+	mov cx, 3
 	mov [Height_Tower], cx
 	call Draw_Tower
-
+	
+	xor ax, ax
+	int 16h
 	
 	draw:
 	call Key_Check
@@ -232,7 +246,7 @@ start:
 	
 	sub [Xpos_Triangle], 5
 	
-	sub [Xpos_Tower], 5
+	sub [Xpos_Tower],5
 	
 	sub [Xpos_Blocks], 5
 	
@@ -245,7 +259,7 @@ start:
 	
 	call Cube_Move
 	
-	push 100 ; ms
+	push 70 ; ms
 	call LoopDelay
 	jmp draw
 	
@@ -276,6 +290,39 @@ proc LoopDelay
 	
 	ret 2
 endp LoopDelay
+
+proc MouseShow
+	PUSH_ALL
+
+	mov ax, 1
+	int 33h
+
+	@@wait_for_left:
+	mov ax, 3
+	int 33h
+	
+	shr cx, 1
+	cmp bx, 1
+	jne @@wait_for_left
+	
+	cmp cx, 120
+	jb @@wait_for_left
+	
+	cmp cx, 190
+	ja @@wait_for_left
+	
+	cmp dx, 90
+	jb @@wait_for_left
+	
+	cmp dx, 150
+	ja @@wait_for_left
+	
+	mov ax, 2
+	int 33h
+
+	POP_ALL
+	ret
+endp MouseShow
 
 ;BMP pictures opening proc - 254 lines
 
@@ -691,23 +738,84 @@ proc Pick_bmp_by_height
 	mov ax, 18
 	push ax
 	push ax
-
-	cmp [can_jump], 1 ; if on ground or block
-	jne @@in_air
 	
-	cmp [Is_Going_up], 1
+	cmp [timeInAir], 0 ; if timer is zero we need to print the 90 degrees even if not on ground
+	je @@90_deg
+	
+	cmp [can_jump], 0 ; if on ground or block
 	je @@in_air
 	
+	@@90_deg:
+	mov [timeInAir], 0
 	mov dx, offset FileName_cube
 	jmp @@print
 
 	@@in_air:
+	
+	cmp [timeInAir], 1
+	je @@10_deg
+	
+	cmp [timeInAir], 2
+	je @@20_deg
+
+	cmp [timeInAir], 3
+	je @@30_deg
+
+	cmp [timeInAir], 4
+	je @@40_deg
+
+	cmp [timeInAir], 5
+	je @@50_deg
+
+	cmp [timeInAir], 6
+	je @@60_deg
+
+	cmp [timeInAir], 7
+	je @@70_deg
+
+	cmp [timeInAir], 8
+	je @@80_deg
+	
+	@@10_deg:
+	mov dx, offset FileName_cube10
+	jmp @@print
+	
+	@@20_deg:
+	mov dx, offset FileName_cube20
+	jmp @@print
+	
+	@@30_deg:
 	mov dx, offset FileName_cube30
+	jmp @@print
 	
+	@@40_deg:
+	mov dx, offset FileName_cube40
+	jmp @@print
 	
+	@@50_deg:
+	mov dx, offset FileName_cube50
+	jmp @@print	
+	
+	@@60_deg:
+	mov dx, offset FileName_cube60
+	jmp @@print	
+	
+	@@70_deg:
+	mov dx, offset FileName_cube70
+	jmp @@print	
+	
+	@@80_deg:
+	mov dx, offset FileName_cube80
 
 
 	@@print:
+	inc [timeInAir]
+	cmp [timeInAir], 9 ; if equal to ten mak it zero
+	jb @@end
+	
+	mov [timeInAir], 0
+	
+	@@end:
 	call DrawPictureBmp
 
 	POP_ALL
@@ -1469,6 +1577,7 @@ proc Cube_Ascend
 	je @@end ; if not go to end
 	
 	mov [Is_Falling], 0
+	mov [can_jump], 0
 	
 	cmp [bool_calc_max_height], 1; if already we calculated the max height
 	je @@go_up
