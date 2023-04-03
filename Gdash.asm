@@ -106,12 +106,12 @@ DATASEG
 	
 	
 	;Triangle
-	Xpos_Triangle dw 447
+	Xpos_Triangle dw 610
 	Ypos_Triangle dw 152
 	Triangle_Alive db 1
 	
 	;Tower
-	Xpos_Tower dw 320
+	Xpos_Tower dw 520
 	Ypos_Tower dw ? ; ypos is calculated by how many blocks we want
 	Height_Tower dw ?
 	Tower_Alive db 1
@@ -196,14 +196,23 @@ DATASEG
 	FileName_cube db 'cube.bmp', 0
 	
 	;cube rotation frames
+	FileName_cube5  db 'cube5.bmp' , 0
 	FileName_cube10 db 'cube10.bmp', 0
+	FileName_cube15 db 'cube15.bmp', 0
 	FileName_cube20 db 'cube20.bmp', 0
+	FileName_cube25 db 'cube25.bmp', 0
 	FileName_cube30 db 'cube30.bmp', 0
+	FileName_cube35 db 'cube35.bmp', 0
 	FileName_cube40 db 'cube40.bmp', 0
+	FileName_cube45 db 'cube45.bmp', 0
 	FileName_cube50 db 'cube50.bmp', 0
+	FileName_cube55 db 'cube55.bmp', 0
 	FileName_cube60 db 'cube60.bmp', 0
+	FileName_cube65 db 'cube65.bmp', 0
 	FileName_cube70 db 'cube70.bmp', 0
+	FileName_cube75 db 'cube75.bmp', 0
 	FileName_cube80 db 'cube80.bmp', 0
+	FileName_cube85 db 'cube85.bmp', 0
 ; --------------------------
 
 CODESEG
@@ -225,7 +234,7 @@ start:
 	call DrawBlock
 	call DrawCube
 	call Draw_Triangle
-	mov cx, 3
+	mov cx, 2
 	mov [Height_Tower], cx
 	call Draw_Tower
 	
@@ -291,16 +300,18 @@ proc LoopDelay
 	ret 2
 endp LoopDelay
 
+;for loading screen
 proc MouseShow
 	PUSH_ALL
 
-	mov ax, 1
+	mov ax, 1 ; show mouse
 	int 33h
 
 	@@wait_for_left:
 	mov ax, 3
 	int 33h
 	
+	;check if middle button
 	shr cx, 1
 	cmp bx, 1
 	jne @@wait_for_left
@@ -751,66 +762,129 @@ proc Pick_bmp_by_height
 	jmp @@print
 
 	@@in_air:
+	mov al, [timeInAir]
 	
-	cmp [timeInAir], 1
+	cmp al, 1
+	je @@5_deg
+	
+	cmp al, 2
 	je @@10_deg
-	
-	cmp [timeInAir], 2
+
+	cmp al, 3
+	je @@15_deg
+
+	cmp al, 4
 	je @@20_deg
 
-	cmp [timeInAir], 3
+	cmp al, 5
+	je @@25_deg
+
+	cmp al,  6
 	je @@30_deg
 
-	cmp [timeInAir], 4
+	cmp al, 7
+	je @@35_deg
+
+	cmp al, 8
 	je @@40_deg
-
-	cmp [timeInAir], 5
+	
+	cmp al, 9
+	je @@45_deg
+	
+	cmp al, 10
 	je @@50_deg
+	
+	cmp al, 11
+	je @@55_deg
 
-	cmp [timeInAir], 6
+	cmp al, 12
 	je @@60_deg
 
-	cmp [timeInAir], 7
+	cmp al, 13
+	je @@65_deg
+
+	cmp al, 14
 	je @@70_deg
 
-	cmp [timeInAir], 8
+	cmp al, 15
+	je @@75_deg
+
+	cmp al, 16
 	je @@80_deg
+
+	jmp @@85_deg ; if it got here it got to be 17
+	
+	@@5_deg:
+	mov dx, offset FileName_cube5
+	jmp @@print
 	
 	@@10_deg:
 	mov dx, offset FileName_cube10
+	jmp @@print
+	
+	@@15_deg:
+	mov dx, offset FileName_cube15
 	jmp @@print
 	
 	@@20_deg:
 	mov dx, offset FileName_cube20
 	jmp @@print
 	
+	@@25_deg:
+	mov dx, offset FileName_cube25
+	jmp @@print
+	
 	@@30_deg:
 	mov dx, offset FileName_cube30
+	jmp @@print
+	
+	@@35_deg:
+	mov dx, offset FileName_cube35
 	jmp @@print
 	
 	@@40_deg:
 	mov dx, offset FileName_cube40
 	jmp @@print
 	
+	@@45_deg:
+	mov dx, offset FileName_cube45
+	jmp @@print
+	
 	@@50_deg:
 	mov dx, offset FileName_cube50
+	jmp @@print	
+	
+	@@55_deg:
+	mov dx, offset FileName_cube55
 	jmp @@print	
 	
 	@@60_deg:
 	mov dx, offset FileName_cube60
 	jmp @@print	
 	
+	@@65_deg:
+	mov dx, offset FileName_cube65
+	jmp @@print
+	
 	@@70_deg:
 	mov dx, offset FileName_cube70
+	jmp @@print
+	
+	@@75_deg:
+	mov dx, offset FileName_cube75
 	jmp @@print	
 	
 	@@80_deg:
 	mov dx, offset FileName_cube80
+	jmp @@print
+	
+	@@85_deg:
+	mov dx, offset FileName_cube85
 
 
 	@@print:
 	inc [timeInAir]
-	cmp [timeInAir], 9 ; if equal to ten mak it zero
+	cmp [timeInAir], 18 ; if equal to ten mak it zero
 	jb @@end
 	
 	mov [timeInAir], 0
