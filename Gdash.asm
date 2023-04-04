@@ -1315,6 +1315,13 @@ endp DrawBackground
 ;================================================
 proc Key_Check
 	PUSH_ALL
+	
+	;checl if the mouse was pressed
+	mov ax, 3
+	int 33h
+	
+	cmp bx, 1 ; if the left button then go to jump
+	je @@jump
 
 	mov ah, 1h
 	int 16h
