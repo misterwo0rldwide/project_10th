@@ -9,6 +9,7 @@ STACK 100h
 ;file names
 FILE_NAME_IN  equ 'back.bmp'
 FILE_NAME_START equ 'start.bmp'
+PLAYER_NAME equ 14, 16 dup (?)
 
 
 ;macros
@@ -65,6 +66,10 @@ endm POP_ALL_BP
 DATASEG
 ; --------------------------
 ; Your variables here
+
+	;player
+	NamePlayer db PLAYER_NAME
+	
 	; -- Cube variables --
 	
 	; -- loop var --
@@ -191,11 +196,15 @@ DATASEG
 	ErrorFile db ?
 	BmpFileErrorMsg    	db 'Error At Opening Bmp File ',FILE_NAME_IN, 0dh, 0ah,'$'
 	
+	;screens
 	FileName_background db 'back.bmp' ,0
 	FileName_start db 'start.bmp', 0
-	FileName_cube db 'cube.bmp', 0
+	FileName_EnterName db 'name.bmp', 0
+	FileName_Settings db 'settings.bmp', 0
+	FileName_colors db 'colors.bmp', 0
 	
 	;cube rotation frames
+	FileName_cube   db 'cube.bmp'  , 0
 	FileName_cube5  db 'cube5.bmp' , 0
 	FileName_cube10 db 'cube10.bmp', 0
 	FileName_cube15 db 'cube15.bmp', 0
@@ -223,9 +232,6 @@ start:
 ; Your code here
 
 	call SetGraphics
-	
-	
-	call DrawStartScreen
 	
 	;mouse show
 	call MouseShow
@@ -303,6 +309,8 @@ endp LoopDelay
 ;for loading screen
 proc MouseShow
 	PUSH_ALL
+	
+	call DrawStartScreen ; draw the start screen
 
 	mov ax, 1 ; show mouse
 	int 33h
@@ -317,23 +325,240 @@ proc MouseShow
 	jne @@wait_for_left
 	
 	cmp cx, 120
-	jb @@wait_for_left
+	jb @@check2
 	
 	cmp cx, 190
-	ja @@wait_for_left
+	ja @@check2
 	
 	cmp dx, 90
-	jb @@wait_for_left
+	jb @@check2
 	
 	cmp dx, 150
+	ja @@check2
+	
+	;if it got here it means we have pressed on the start button
+	call Name_Screen
+	jmp @@end
+	
+	@@check2:
+	;check if left button
+	
+	cmp cx, 40
+	jb @@check3
+	
+	cmp cx, 83
+	ja @@check3
+	
+	cmp dx, 100
+	jb @@check3
+	
+	cmp dx, 137
+	ja @@check3
+	
+	call Colors_Screen
+	jmp @@end
+	
+	@@check3:
+	
+	;check if right button
+	cmp cx, 231
+	jb @@wait_for_left
+	
+	cmp cx, 274
 	ja @@wait_for_left
 	
-	mov ax, 2
-	int 33h
-
+	cmp dx, 100
+	jb @@wait_for_left
+	
+	cmp dx, 137
+	ja @@wait_for_left
+	
+	call Settings_Screen
+	
+	
+	@@end:
 	POP_ALL
 	ret
 endp MouseShow
+
+proc Colors_Screen
+	PUSH_ALL
+
+	mov ax, 2
+	int 33h
+	
+	mov dx, offset FileName_colors
+	DRAW_FULL_BMP
+	
+	mov ax, 1
+	int 33h
+	
+	@@check_click:
+	mov ax, 3
+	int 33h
+	
+	cmp bx, 1
+	jne @@check_click
+	shr cx, 1
+	
+	;check if go back
+	cmp cx, 21
+	jb @@check_click
+	
+	cmp cx, 63
+	ja @@check_click
+	
+	cmp dx, 27
+	jb @@check_click
+	
+	cmp dx, 46
+	ja @@check_click
+	
+	;if it got here it was pressed
+	mov ax, 2
+	int 33h
+	call MouseShow
+
+	POP_ALL
+	ret
+endp Colors_Screen
+
+proc Settings_Screen
+	PUSH_ALL
+	
+	mov ax, 2
+	int 33h
+	
+	mov dx, offset FileName_Settings
+	DRAW_FULL_BMP
+	
+	mov ax, 1
+	int 33h
+	
+	@@check_click:
+	mov ax, 3
+	int 33h
+	
+	cmp bx, 1
+	jne @@check_click
+	shr cx, 1
+	
+	;check if go back
+	cmp cx, 21
+	jb @@check_click
+	
+	cmp cx, 63
+	ja @@check_click
+	
+	cmp dx, 27
+	jb @@check_click
+	
+	cmp dx, 46
+	ja @@check_click
+	
+	;if it got here it was pressed
+	mov ax, 2
+	int 33h
+	call MouseShow
+	
+
+
+
+	POP_ALL
+	ret
+endp Settings_Screen
+
+proc Name_Screen
+	PUSH_ALL
+	
+	mov ax, 2 ; hide mouse
+	int 33h
+	
+	mov dx, offset FileName_EnterName
+	DRAW_FULL_BMP
+	
+	mov ax, 1 ; show mouse
+	int 33h
+
+	@@check_click: ;check if left click was on the name enter
+	mov ax, 3
+	int 33h
+	
+	cmp bx, 1
+	jne @@check_click
+	shr cx, 1
+	
+	cmp cx, 89
+	jb @@cont
+	
+	cmp cx, 226
+	ja @@cont
+	
+	cmp dx, 79
+	jb @@cont
+	
+	cmp dx, 105
+	ja @@cont
+	
+	;if it got here it means we have pressed on the start button
+	call Enter_Name
+	jmp @@end
+	
+	@@cont:
+	
+	;check if got back
+	cmp cx, 21
+	jb @@check_click
+	
+	cmp cx, 63
+	ja @@check_click
+	
+	cmp dx, 27
+	jb @@check_click
+	
+	cmp dx, 46
+	ja @@check_click
+	
+	;if it got here it means the player has pressed back button
+	mov ax, 2
+	int 33h
+	call MouseShow
+	
+
+	@@end:
+	POP_ALL
+	ret
+endp Name_Screen
+
+proc Enter_Name
+	PUSH_ALL
+
+	;hide mouse to now enter name
+	mov ax, 2
+	int 33h
+	
+	;moving the keyboard
+	mov ah, 2
+	xor bh, bh
+	mov dh, 11
+	mov dl, 12
+	int 10h
+	
+	;getting the name
+	mov ah, 0ah
+	mov dx, offset NamePlayer
+	int 21h
+	
+	;getting back to normal
+	mov ah, 2
+	xor bh, bh
+	xor dx, dx
+	int 10h
+
+
+	POP_ALL
+	ret
+endp Enter_Name
 
 ;BMP pictures opening proc - 254 lines
 
