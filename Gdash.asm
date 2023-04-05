@@ -6,9 +6,6 @@ BMP_HEIGHT = 200
 
 STACK 100h
 
-;file names
-FILE_NAME_IN  equ 'back.bmp'
-FILE_NAME_START equ 'start.bmp'
 PLAYER_NAME equ 14, 16 dup (?)
 
 
@@ -67,8 +64,16 @@ DATASEG
 ; --------------------------
 ; Your variables here
 
-	;player
+	; -- player --
+	
+	;name
 	NamePlayer db PLAYER_NAME
+	
+	;Bonus points
+	BonusPoints db ?
+	
+	;seconds alive
+	seconds dw ?
 	
 	; -- Cube variables --
 	
@@ -116,7 +121,7 @@ DATASEG
 	Triangle_Alive db 1
 	
 	;Tower
-	Xpos_Tower dw 520
+	Xpos_Tower dw 320
 	Ypos_Tower dw ? ; ypos is calculated by how many blocks we want
 	Height_Tower dw ?
 	Tower_Alive db 1
@@ -194,7 +199,7 @@ DATASEG
 	BmpColSize dw ?
 	BmpRowSize dw ?
 	ErrorFile db ?
-	BmpFileErrorMsg    	db 'Error At Opening Bmp File ',FILE_NAME_IN, 0dh, 0ah,'$'
+	BmpFileErrorMsg    	db 'Error At Opening Bmp File ', 0dh, 0ah,'$'
 	
 	;screens
 	FileName_background db 'back.bmp' ,0
@@ -233,6 +238,8 @@ start:
 
 	call SetGraphics
 	
+	call SetMouseLimits
+	
 	;mouse show
 	call MouseShow
 	
@@ -240,7 +247,7 @@ start:
 	call DrawBlock
 	call DrawCube
 	call Draw_Triangle
-	mov cx, 2
+	mov cx, 3
 	mov [Height_Tower], cx
 	call Draw_Tower
 	
@@ -279,6 +286,8 @@ start:
 	jmp draw
 	
 	cont:
+	
+	;call printAxDec
 ; --------------------------
 
 exit:
@@ -306,11 +315,32 @@ proc LoopDelay
 	ret 2
 endp LoopDelay
 
+
+proc SetMouseLimits
+	PUSH_ALL
+
+	mov ax, 7 ; set limits of mouse - X
+	mov cx, 17 ; min
+	mov dx, 292 ; max
+	shl cx, 1
+	shl dx, 1
+	int 33h
+	
+	mov ax, 8 ; set limits of mouse - Y
+	mov cx, 24 ; min
+	mov dx, 162 ; max
+	int 33h
+
+	POP_ALL
+	ret
+endp SetMouseLimits
+
 ;for loading screen
 proc MouseShow
 	PUSH_ALL
 	
 	call DrawStartScreen ; draw the start screen
+	
 
 	mov ax, 1 ; show mouse
 	int 33h
@@ -1613,7 +1643,7 @@ proc Check_white_Under
 endp Check_white_Under
 
 
-proc Check_Right
+proc Check_Hit
 	PUSH_ALL
 	
 	call Check_Blocks
@@ -1635,7 +1665,7 @@ proc Check_Right
 	@@end:
 	POP_ALL
 	ret
-endp Check_Right
+endp Check_Hit
 
 ;if we hit blocks al will be one
 proc Check_Blocks
@@ -2053,13 +2083,54 @@ proc Cube_Move
 	@@end_move:
 	
 	call Check_Where_Cube
-	call Check_Right ; if we got into a block and died
+	call Check_Hit ; if we got into a block or triangle and died
 	
 	
 	@@end:
 	POP_ALL
 	ret
 endp Cube_Move
+
+proc printAxDec  
+	   
+       push bx
+	   push dx
+	   push cx
+	           	   
+       mov cx,0   ; will count how many time we did push 
+       mov bx,10  ; the divider
+   
+put_next_to_stack:
+       xor dx,dx
+       div bx
+       add dl,30h
+	   ; dl is the current LSB digit 
+	   ; we cant push only dl so we push all dx
+       push dx    
+       inc cx
+       cmp ax,9   ; check if it is the last time to div
+       jg put_next_to_stack
+
+	   cmp ax,0
+	   jz pop_next_from_stack  ; jump if ax was totally 0
+       add al,30h  
+	   mov dl, al    
+  	   mov ah, 2h
+	   int 21h        ; show first digit MSB
+	       
+pop_next_from_stack: 
+       pop ax    ; remove all rest LIFO (reverse) (MSB to LSB)
+	   mov dl, al
+       mov ah, 2h
+	   int 21h        ; show all rest digits
+       loop pop_next_from_stack
+
+	   pop cx
+	   pop dx
+	   pop bx
+	   
+       ret
+endp printAxDec    
 
 END start
 
