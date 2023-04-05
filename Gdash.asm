@@ -70,9 +70,10 @@ DATASEG
 	NamePlayer db PLAYER_NAME
 	
 	;Bonus points
-	BonusPoints db ?
+	BonusPointsCounter db ?
 	
 	;seconds alive
+	counterSeconds db ?
 	seconds dw ?
 	
 	; -- Cube variables --
@@ -126,6 +127,11 @@ DATASEG
 	Height_Tower dw ?
 	Tower_Alive db 1
 	
+	;Bonus Points
+	Xpos_Points dw 300
+	Ypos_Points dw 120
+	Point_Alive db ?
+	
 	; -- drawing using matrix --
 	
 	;erasing cube
@@ -164,8 +170,25 @@ DATASEG
 					db 0ffh,  0,   0,   0,   0,   0,   0,   0,   0,   0,    0,0   ,   0,   0,   0,   0,   0,0ffh
 					db 0ffh,  0,   0,   0,   0,   0,   0,   0,   0,   0,    0,0   ,   0,   0,   0,   0,   0,0ffh
 					db 0ffh,0ffh,0ffh,0ffh,0ffh,0ffh,0ffh,0ffh,0ffh,0ffh,0ffh,0ffh,0ffh,0ffh,0ffh,0ffh,0ffh,0ffh
+
 	;erasing block
 	matrix_erase_blocks db 324 dup (?)
+	
+	;bonus points
+	matrix_bonus    db 0fh,0fh,0fh,0fh,0fh,0fh
+					db 0fh,0fh,0fh,0fh,0fh,0fh
+					db 0fh,0fh,0fh,0fh,0fh,0fh
+					db 0fh,0fh,0fh,0fh,0fh,0fh
+					db 0fh,0fh,0fh,0fh,0fh,0fh
+					db 0fh,0fh,0fh,0fh,0fh,0fh
+					db 0fh,0fh,0fh,0fh,0fh,0fh
+					db 0fh,0fh,0fh,0fh,0fh,0fh
+					db 0fh,0fh,0fh,0fh,0fh,0fh
+					db 0fh,0fh,0fh,0fh,0fh,0fh
+					db 0fh,0fh,0fh,0fh,0fh,0fh
+	
+	;erasing point
+	matrix_erase_point db 66 dup (?)
 	;erase tower
 	
 	matrix_erase_tower db 324 dup (?)
@@ -240,7 +263,6 @@ start:
 	
 	call SetMouseLimits
 	
-	;mouse show
 	call MouseShow
 	
 	call DrawBackground
@@ -250,6 +272,7 @@ start:
 	mov cx, 3
 	mov [Height_Tower], cx
 	call Draw_Tower
+	call DrawPoint
 	
 	xor ax, ax
 	int 16h
@@ -259,9 +282,9 @@ start:
 	
 	cmp [IsExit], 1
 	je cont
-	;call DrawBackground
 	
 	;erase
+	call Erase_point
 	call Erase_Block
 	call Erase_Triangle
 	call Erase_Tower
@@ -272,22 +295,26 @@ start:
 	
 	sub [Xpos_Blocks], 5
 	
+	sub [Xpos_Points], 5
+	
 	mov cx, [Height_Tower]
 	call Draw_Tower
 	
 	call DrawBlock
 	
+	call DrawPoint
+	
 	call Draw_Triangle
 	
 	call Cube_Move
+	
+	call CountSeconds
 	
 	push 70 ; ms
 	call LoopDelay
 	jmp draw
 	
 	cont:
-	
-	;call printAxDec
 ; --------------------------
 
 exit:
@@ -316,6 +343,20 @@ proc LoopDelay
 endp LoopDelay
 
 
+;counts seconds and stores them in the var seconds
+proc CountSeconds
+	
+	inc [counterSeconds]
+	cmp [counterSeconds], 27 ; one second
+	jne @@cont
+	inc [seconds]
+	mov [counterSeconds], 0
+	@@cont:
+
+	ret
+endp CountSeconds
+
+;sets the limit for starting screens
 proc SetMouseLimits
 	PUSH_ALL
 
@@ -385,7 +426,7 @@ proc MouseShow
 	cmp dx, 137
 	ja @@check3
 	
-	call Colors_Screen
+	call Guiding_Screen
 	jmp @@end
 	
 	@@check3:
@@ -411,7 +452,7 @@ proc MouseShow
 	ret
 endp MouseShow
 
-proc Colors_Screen
+proc Guiding_Screen
 	PUSH_ALL
 
 	mov ax, 2
@@ -451,7 +492,7 @@ proc Colors_Screen
 
 	POP_ALL
 	ret
-endp Colors_Screen
+endp Guiding_Screen
 
 proc Settings_Screen
 	PUSH_ALL
@@ -589,385 +630,17 @@ proc Enter_Name
 	POP_ALL
 	ret
 endp Enter_Name
-
-;BMP pictures opening proc - 254 lines
-
-proc OpenShowBmp near
-	
-	 
-	call OpenBmpFile
-	cmp [ErrorFile],1
-	je @@ExitProc
-	
-	call ReadBmpHeader
-	
-	call ReadBmpPalette
-	
-	call CopyBmpPalette
-	
-	call  ShowBmp
-	
-	 
-	call CloseBmpFile
-
-@@ExitProc:
-	ret
-endp OpenShowBmp
-
-proc CloseBmpFile near
-	mov ah,3Eh
-	mov bx, [FileHandle]
-	int 21h
-	ret
-endp CloseBmpFile
- 
-
-; input dx filename to open
-proc OpenBmpFile	near						 
-	mov ah, 3Dh
-	xor al, al
-	int 21h
-	jc @@ErrorAtOpen
-	mov [FileHandle], ax
-	jmp @@ExitProc
-	
-@@ErrorAtOpen:
-	mov [ErrorFile],1
-@@ExitProc:	
-	ret
-endp OpenBmpFile
-
-
-proc ReadBmpHeader	near					
-	push cx
-	push dx
-	
-	mov ah,3fh
-	mov bx, [FileHandle]
-	mov cx,54
-	mov dx,offset Header
-	int 21h
-	
-	pop dx
-	pop cx
-	ret
-endp ReadBmpHeader
-
-
-
-proc ReadBmpPalette near ; Read BMP file color palette, 256 colors * 4 bytes (400h)
-						 ; 4 bytes for each color BGR + null)			
-	push cx
-	push dx
-	
-	mov ah,3fh
-	mov cx,400h
-	mov dx,offset Palette
-	int 21h
-	
-	pop dx
-	pop cx
-	
-	ret
-endp ReadBmpPalette
-
-
-; Will move out to screen memory the colors
-; video ports are 3C8h for number of first color
-; and 3C9h for all rest
-proc CopyBmpPalette		near					
-										
-	push cx
-	push dx
-	
-	mov si,offset Palette
-	mov cx,256
-	mov dx,3C8h
-	mov al,0  ; black first							
-	out dx,al ;3C8h
-	inc dx	  ;3C9h
-CopyNextColor:
-	mov al,[si+2] 		; Red				
-	shr al,2 			; divide by 4 Max (cos max is 63 and we have here max 255 ) (loosing color resolution).				
-	out dx,al 						
-	mov al,[si+1] 		; Green.				
-	shr al,2            
-	out dx,al 							
-	mov al,[si] 		; Blue.				
-	shr al,2            
-	out dx,al 							
-	add si,4 			; Point to next color.  (4 bytes for each color BGR + null)				
-								
-	loop CopyNextColor
-	
-	pop dx
-	pop cx
-	
-	ret
-endp CopyBmpPalette
-
- 
-proc ShowBMP 
-; BMP graphics are saved upside-down.
-; Read the graphic line by line (BmpRowSize lines in VGA format),
-; displaying the lines from bottom to top.
-	push cx
-	
-	mov ax, 0A000h
-	mov es, ax
-	
-	mov cx,[BmpRowSize]
-	
- 
-	mov ax,[BmpColSize] ; row size must dived by 4 so if it less we must calculate the extra padding bytes
-	xor dx,dx
-	mov si,4
-	div si
-	cmp dx,0
-	mov bp,0
-	jz @@row_ok
-	mov bp,4
-	sub bp,dx
-
-@@row_ok:	
-	mov dx,[BmpLeft]
-	
-@@NextLine:
-	push cx
-	push dx
-	
-	mov di,cx  ; Current Row at the small bmp (each time -1)
-	add di,[BmpTop] ; add the Y on entire screen
-	
- 
-	; next 5 lines  di will be  = cx*320 + dx , point to the correct screen line
-	mov cx,di
-	shl cx,6
-	shl di,8
-	add di,cx
-	add di,dx
-	 
-	; small Read one line
-	mov ah,3fh
-	mov cx,[BmpColSize]  
-	add cx,bp  ; extra  bytes to each row must be divided by 4
-	mov dx,offset ScrLine
-	int 21h
-	; Copy one line into video memory
-	cld ; Clear direction flag, for movsb
-	mov cx,[BmpColSize]  
-	mov si,offset ScrLine
-	;rep movsb ; Copy line to the screen
-	@@put_screen:
-	mov al, [ds:si]
-	cmp al, 1
-	je @@dont_draw
-	mov [es:di], al
-	@@dont_draw:
-	inc di
-	inc si
-	loop @@put_screen
-	
-	pop dx
-	pop cx
-	 
-	loop @@NextLine
-	
-	pop cx
-	ret
-endp ShowBMP 
-
-	
-
-; Read 54 bytes the Header
-proc PutBmpHeader	near					
-	mov ah,40h
-	mov bx, [FileHandle]
-	mov cx,54
-	mov dx,offset Header
-	int 21h
-	ret
-endp PutBmpHeader
- 
-
-
-
-proc PutBmpPalette near ; Read BMP file color palette, 256 colors * 4 bytes (400h)
-						 ; 4 bytes for each color BGR + null)			
-	mov ah,40h
-	mov cx,400h
-	mov dx,offset Palette
-	int 21h
-	ret
-endp PutBmpPalette
-
-
 ;================================================
-; Description -  draws a bmp picture
-; INPUT: stack - order of push - x, y, col size, row size and dx needs to be the offset of file name
-; OUTPUT: picture on screen in visual mode
-; Register Usage: None
-;================================================
-proc DrawPictureBmp
-	PUSH_ALL_BP
-	
-	mov ax, [bp + 10];x
-	mov bx, [bp + 8];y
-	mov cx, [bp + 6]; length
-	mov si, [bp + 4]; height
-	
-	mov [BmpLeft],ax
-	mov [BmpTop],bx
-	mov [BmpColSize], cx
-	mov [BmpRowSize] ,si
-	
-	call OpenShowBmp
-	cmp [ErrorFile],1
-	jne @@cont 
-	jmp exitError
-@@cont:
-
-	
-    jmp @@end
-	
-exitError:
-	mov ax,2
-	int 10h
-	
-    mov dx, offset BmpFileErrorMsg
-	mov ah,9
-	int 21h
-	
-	@@end:
-	POP_ALL_BP
-	ret 8
-endp DrawPictureBmp	
-	
-;BMP pictures end
-
-;================================================
-; Description -  sets to graphics mode
+; Description -  draws cube using bmp and Xpos and Ypos variables
 ; INPUT: None
-; OUTPUT: dos box set to graphics mode
-; Register Usage: None
-;================================================
-proc SetGraphics
-	push ax
-	mov ax, 13h
-	int 10h
-	pop ax
-	ret
-endp SetGraphics
-
-; in dx how many cols 
-; in cx how many rows
-; in matrix - the bytes
-; in di start byte in screen (0 64000 -1)
-
-proc putMatrixInScreen
-	PUSH_ALL
-	
-	mov ax, 0A000h
-	mov es, ax
-	cld
-	
-	push dx
-	mov ax,cx
-	mul dx
-	mov bp,ax
-	pop dx
-	
-	
-	mov si,[matrix]
-	
-@@NextRow:	
-	push cx
-	
-	mov cx, dx
-	
-	@@draw_line:	; Copy line to the screen
-	mov al, [byte ds:si]
-	cmp al, -2
-	je @@end ; if it is equal to minus one we need to skip it
-	mov [byte es:di], al
-	@@end:
-	inc si
-	inc di
-	loop @@draw_line
-	
-	sub di,dx
-	add di, 320
-	
-	
-	pop cx
-	loop @@NextRow
-	
-	
-endProc:	
-	
-	POP_ALL
-    ret
-endp putMatrixInScreen
-
-; in dx how many cols 
-; in cx how many rows
-; in matrix - the offset of the var we want to copy to
-; in di start byte in screen (0 64000 -1)
-proc putMatrixInData
-	PUSH_ALL
-	
-	mov ax, 0A000h
-	mov es, ax
-	cld
-	
-	push dx
-	mov ax,cx
-	mul dx
-	mov bp,ax
-	pop dx
-	
-	
-	mov si,[matrix]
-	
-@@NextRow:	
-	push cx
-	
-	mov cx, dx
-	
-	@@copy_data:	; Copy line to the screen
-	mov al, [byte es:di]
-	cmp al, -2
-	je @@end ; if it is equal to minus one we need to skip it
-	mov [byte ds:si], al
-	@@end:
-	inc si
-	inc di
-	loop @@copy_data
-	
-	sub di,dx
-	add di, 320
-	
-	
-	pop cx
-	loop @@NextRow
-	
-	
-
-	
-	POP_ALL
-    ret
-endp putMatrixInData
-;================================================
-; Description -  draws cube using putMatrixInScreen and Xpos and Ypos variables
-; INPUT: None
-; OUTPUT: matrix1 drawn on screen
+; OUTPUT: bmp drawn on screen
 ; Register Usage: None
 ;================================================
 
 
 ;draw all shapes
 
-;cube - using matrix in screen
+;cube - using bmp
 proc DrawCube
 	PUSH_ALL
 	
@@ -1413,8 +1086,8 @@ proc Draw_Tower
 	
 	;because cx has the number of blocks we want we can use it in a loop
 	@@draw_blocks:
-	push bx
-	push [Xpos_Tower]
+	push bx ; push y
+	push [Xpos_Tower] ; push x
 	
 	call Copy_Background_Tower ; firstly we will copy the background
 	
@@ -1459,7 +1132,7 @@ proc Copy_Background_Tower
 endp Copy_Background_Tower
 
 ; put in bx the offset of the var by the register si
-; in si we have the nu,ber of the block we want to copy
+; in si we have the number of the block we want to copy
 proc put_bx_offsetmatrix
 
 	cmp si, 0
@@ -1533,6 +1206,77 @@ proc Erase_Tower
 	POP_ALL
 	ret
 endp Erase_Tower
+
+proc DrawPoint
+	PUSH_ALL
+	
+	cmp [Xpos_Points], 310
+	ja @@kill_point
+	
+	mov [Point_Alive], 1
+
+	;calculating the place
+	mov ax, [Ypos_Points]
+	mov bx, 320
+	mul bx
+
+	mov di, ax
+	add di, [Xpos_Points]
+	
+	mov cx, 11 ; rows
+	mov dx, 6 ; col
+
+	call Copy_Background_Points ; copy the background
+	
+	mov bx, offset matrix_bonus ; now we change it to draw
+	mov [matrix], bx
+	
+	call putMatrixInScreen ; drawing
+	jmp @@end
+	
+	@@kill_point:
+	mov [Point_Alive], 0
+	
+	@@end:
+	POP_ALL
+	ret
+endp DrawPoint
+
+proc Copy_Background_Points
+
+	mov bx, offset matrix_erase_point
+	mov [matrix], bx
+	call putMatrixInData
+
+	ret
+endp Copy_Background_Points
+
+proc Erase_point
+	PUSH_ALL
+	
+	cmp [Point_Alive], 0
+	je @@end
+
+	;calculating the place
+	mov ax, [Ypos_Points]
+	mov bx, 320
+	mul bx
+
+	mov di, ax
+	add di, [Xpos_Points]
+	
+	mov cx, 11 ; rows
+	mov dx, 6 ; col
+	
+	mov bx, offset matrix_erase_point
+	mov [matrix], bx
+	call putMatrixInScreen
+
+
+	@@end:
+	POP_ALL
+	ret
+endp Erase_point
 
 ;================================================
 ; Description -  draws a picture of start screen
@@ -1793,79 +1537,6 @@ proc Check_Triangle
 	ret
 endp Check_Triangle
 
-proc Check_Black_Right
-	mov ah,0Dh
-	mov cx,[Xpos]
-	mov dx, [Ypos]
-	add cx, 18	
-	add dx, 17
-	int 10H ; AL = COLOR
-	cmp al, 0; check white
-	je @@end_game
-
-	mov ah, 0dh
-	inc cx
-	int 10h
-	cmp al, 0 ; check white
-	je @@end_game
-
-	mov ah, 0dh
-	inc cx
-	int 10h
-	cmp al, 0; check white
-	je @@end_game
-	
-	xor al, al
-	jmp @@end
-	
-	@@end_game:
-	mov al, 1
-	
-	@@end:
-	ret
-endp Check_Black_Right
-
-;in cx will be the x
-proc Check_Black_Down
-	;we will only check one dot under the cube, of more it will confuse with landing on blocks
-	mov ah,0Dh
-	mov dx, [Ypos]
-	add dx, 18
-	int 10H ; AL = COLOR
-	cmp al, 0ffh; check white
-	je @@end_game
-	
-	cmp al, 0 ; black
-	je @@end_game
-	
-	mov ah, 0dh
-	add dx, 3
-	int 10H ; AL = COLOR
-	cmp al, 0ffh; check white
-	je @@end_game
-	
-	cmp al, 0 ; black
-	je @@end_game
-	
-	mov ah, 0dh
-	inc dx
-	int 10h
-	cmp al, 0ffh
-	je @@end_game
-	
-	cmp al, 0
-	je @@end_game
-	
-
-	xor al, al
-	jmp @@end
-	
-	@@end_game:
-	mov al, 1
-	@@end:
-	ret
-endp Check_Black_Down
-
 ;in case the jump has ended and we are not on the floor
 ;this will check if we have floor under us while falling from a block - when not jumpimg
 proc Check_Fall
@@ -2050,8 +1721,6 @@ endp Check_Where_Cube
 proc Cube_Move
 	PUSH_ALL
 	
-	call Check_Where_Cube
-	
 	cmp [Is_Going_up], 1 ; if we go up then continue ascending
 	je @@jump
 	
@@ -2130,7 +1799,378 @@ pop_next_from_stack:
 	   pop bx
 	   
        ret
-endp printAxDec    
+endp printAxDec 
+
+;bmp files
+
+
+proc OpenShowBmp near
+	
+	 
+	call OpenBmpFile
+	cmp [ErrorFile],1
+	je @@ExitProc
+	
+	call ReadBmpHeader
+	
+	call ReadBmpPalette
+	
+	call CopyBmpPalette
+	
+	call  ShowBmp
+	
+	 
+	call CloseBmpFile
+
+@@ExitProc:
+	ret
+endp OpenShowBmp
+
+proc CloseBmpFile near
+	mov ah,3Eh
+	mov bx, [FileHandle]
+	int 21h
+	ret
+endp CloseBmpFile
+ 
+
+; input dx filename to open
+proc OpenBmpFile	near						 
+	mov ah, 3Dh
+	xor al, al
+	int 21h
+	jc @@ErrorAtOpen
+	mov [FileHandle], ax
+	jmp @@ExitProc
+	
+@@ErrorAtOpen:
+	mov [ErrorFile],1
+@@ExitProc:	
+	ret
+endp OpenBmpFile
+
+
+proc ReadBmpHeader	near					
+	push cx
+	push dx
+	
+	mov ah,3fh
+	mov bx, [FileHandle]
+	mov cx,54
+	mov dx,offset Header
+	int 21h
+	
+	pop dx
+	pop cx
+	ret
+endp ReadBmpHeader
+
+
+
+proc ReadBmpPalette near ; Read BMP file color palette, 256 colors * 4 bytes (400h)
+						 ; 4 bytes for each color BGR + null)			
+	push cx
+	push dx
+	
+	mov ah,3fh
+	mov cx,400h
+	mov dx,offset Palette
+	int 21h
+	
+	pop dx
+	pop cx
+	
+	ret
+endp ReadBmpPalette
+
+
+; Will move out to screen memory the colors
+; video ports are 3C8h for number of first color
+; and 3C9h for all rest
+proc CopyBmpPalette		near					
+										
+	push cx
+	push dx
+	
+	mov si,offset Palette
+	mov cx,256
+	mov dx,3C8h
+	mov al,0  ; black first							
+	out dx,al ;3C8h
+	inc dx	  ;3C9h
+CopyNextColor:
+	mov al,[si+2] 		; Red				
+	shr al,2 			; divide by 4 Max (cos max is 63 and we have here max 255 ) (loosing color resolution).				
+	out dx,al 						
+	mov al,[si+1] 		; Green.				
+	shr al,2            
+	out dx,al 							
+	mov al,[si] 		; Blue.				
+	shr al,2            
+	out dx,al 							
+	add si,4 			; Point to next color.  (4 bytes for each color BGR + null)				
+								
+	loop CopyNextColor
+	
+	pop dx
+	pop cx
+	
+	ret
+endp CopyBmpPalette
+
+ 
+proc ShowBMP 
+; BMP graphics are saved upside-down.
+; Read the graphic line by line (BmpRowSize lines in VGA format),
+; displaying the lines from bottom to top.
+	push cx
+	
+	mov ax, 0A000h
+	mov es, ax
+	
+	mov cx,[BmpRowSize]
+	
+ 
+	mov ax,[BmpColSize] ; row size must dived by 4 so if it less we must calculate the extra padding bytes
+	xor dx,dx
+	mov si,4
+	div si
+	cmp dx,0
+	mov bp,0
+	jz @@row_ok
+	mov bp,4
+	sub bp,dx
+
+@@row_ok:	
+	mov dx,[BmpLeft]
+	
+@@NextLine:
+	push cx
+	push dx
+	
+	mov di,cx  ; Current Row at the small bmp (each time -1)
+	add di,[BmpTop] ; add the Y on entire screen
+	
+ 
+	; next 5 lines  di will be  = cx*320 + dx , point to the correct screen line
+	mov cx,di
+	shl cx,6
+	shl di,8
+	add di,cx
+	add di,dx
+	 
+	; small Read one line
+	mov ah,3fh
+	mov cx,[BmpColSize]  
+	add cx,bp  ; extra  bytes to each row must be divided by 4
+	mov dx,offset ScrLine
+	int 21h
+	; Copy one line into video memory
+	cld ; Clear direction flag, for movsb
+	mov cx,[BmpColSize]  
+	mov si,offset ScrLine
+	;rep movsb ; Copy line to the screen
+	@@put_screen:
+	mov al, [ds:si]
+	cmp al, 1
+	je @@dont_draw
+	mov [es:di], al
+	@@dont_draw:
+	inc di
+	inc si
+	loop @@put_screen
+	
+	pop dx
+	pop cx
+	 
+	loop @@NextLine
+	
+	pop cx
+	ret
+endp ShowBMP 
+
+	
+
+; Read 54 bytes the Header
+proc PutBmpHeader	near					
+	mov ah,40h
+	mov bx, [FileHandle]
+	mov cx,54
+	mov dx,offset Header
+	int 21h
+	ret
+endp PutBmpHeader
+ 
+
+
+
+proc PutBmpPalette near ; Read BMP file color palette, 256 colors * 4 bytes (400h)
+						 ; 4 bytes for each color BGR + null)			
+	mov ah,40h
+	mov cx,400h
+	mov dx,offset Palette
+	int 21h
+	ret
+endp PutBmpPalette
+
+
+;================================================
+; Description -  draws a bmp picture
+; INPUT: stack - order of push - x, y, col size, row size and dx needs to be the offset of file name
+; OUTPUT: picture on screen in visual mode
+; Register Usage: None
+;================================================
+proc DrawPictureBmp
+	PUSH_ALL_BP
+	
+	mov ax, [bp + 10];x
+	mov bx, [bp + 8];y
+	mov cx, [bp + 6]; length
+	mov si, [bp + 4]; height
+	
+	mov [BmpLeft],ax
+	mov [BmpTop],bx
+	mov [BmpColSize], cx
+	mov [BmpRowSize] ,si
+	
+	call OpenShowBmp
+	cmp [ErrorFile],1
+	jne @@cont 
+	jmp exitError
+@@cont:
+
+	
+    jmp @@end
+	
+exitError:
+	mov ax,2
+	int 10h
+	
+    mov dx, offset BmpFileErrorMsg
+	mov ah,9
+	int 21h
+	
+	@@end:
+	POP_ALL_BP
+	ret 8
+endp DrawPictureBmp	 
+
+
+
+;================================================
+; Description -  sets to graphics mode
+; INPUT: None
+; OUTPUT: dos box set to graphics mode
+; Register Usage: None
+;================================================
+proc SetGraphics
+	push ax
+	mov ax, 13h
+	int 10h
+	pop ax
+	ret
+endp SetGraphics
+
+;matrix
+
+; in dx how many cols 
+; in cx how many rows
+; in matrix - the bytes
+; in di start byte in screen (0 64000 -1)
+
+proc putMatrixInScreen
+	PUSH_ALL
+	
+	mov ax, 0A000h
+	mov es, ax
+	cld
+	
+	push dx
+	mov ax,cx
+	mul dx
+	mov bp,ax
+	pop dx
+	
+	
+	mov si,[matrix]
+	
+@@NextRow:	
+	push cx
+	
+	mov cx, dx
+	
+	@@draw_line:	; Copy line to the screen
+	mov al, [byte ds:si]
+	cmp al, -2
+	je @@end ; if it is equal to minus one we need to skip it
+	mov [byte es:di], al
+	@@end:
+	inc si
+	inc di
+	loop @@draw_line
+	
+	sub di,dx
+	add di, 320
+	
+	
+	pop cx
+	loop @@NextRow
+	
+	
+endProc:	
+	
+	POP_ALL
+    ret
+endp putMatrixInScreen
+
+; in dx how many cols 
+; in cx how many rows
+; in matrix - the offset of the var we want to copy to
+; in di start byte in screen (0 64000 -1)
+proc putMatrixInData
+	PUSH_ALL
+	
+	mov ax, 0A000h
+	mov es, ax
+	cld
+	
+	push dx
+	mov ax,cx
+	mul dx
+	mov bp,ax
+	pop dx
+	
+	
+	mov si,[matrix]
+	
+@@NextRow:	
+	push cx
+	
+	mov cx, dx
+	
+	@@copy_data:	; Copy line to the screen
+	mov al, [byte es:di]
+	cmp al, -2
+	je @@end ; if it is equal to minus one we need to skip it
+	mov [byte ds:si], al
+	@@end:
+	inc si
+	inc di
+	loop @@copy_data
+	
+	sub di,dx
+	add di, 320
+	
+	
+	pop cx
+	loop @@NextRow
+	
+	
+
+	
+	POP_ALL
+    ret
+endp putMatrixInData 
 
 END start
 
