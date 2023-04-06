@@ -97,10 +97,6 @@ DATASEG
 	Middle_Height dw ? ; to slow down mid jump
 	bool_calc_max_height db 0 ; if we have calculated max height to not repeat
 	
-	
-	bool_landed_block db 0 ; if landed on block
-	Is_On_Block db 0 ; if is now on block
-	
 	; -- position --
 	
 	;cube
@@ -111,7 +107,7 @@ DATASEG
 	; - blocks - 
 	;cube
 	
-	Xpos_Blocks dw 270
+	Xpos_Blocks dw 250
 	Ypos_Blocks dw 143
 	Blocks_Alive db 1
 	
@@ -122,15 +118,18 @@ DATASEG
 	Triangle_Alive db 1
 	
 	;Tower
-	Xpos_Tower dw 320
+	Xpos_Tower dw 400
 	Ypos_Tower dw ? ; ypos is calculated by how many blocks we want
 	Height_Tower dw ?
 	Tower_Alive db 1
 	
 	;Bonus Points
-	Xpos_Points dw 300
+	Xpos_Points dw 100
 	Ypos_Points dw 120
 	Point_Alive db ?
+	
+	;levels
+	Objects_Placed db ?
 	
 	; -- drawing using matrix --
 	
@@ -189,13 +188,9 @@ DATASEG
 	
 	;erasing point
 	matrix_erase_point db 66 dup (?)
-	;erase tower
 	
-	matrix_erase_tower db 324 dup (?)
-	matrix_erase_tower1 db 324 dup (?)
-	matrix_erase_tower2 db 324 dup (?)
-	matrix_erase_tower3 db 324 dup (?)
-	matrix_erase_tower4 db 324 dup (?)
+	;erase tower
+	matrix_erase_tower db 1620 dup (?)
 
 	
 	
@@ -266,13 +261,7 @@ start:
 	call MouseShow
 	
 	call DrawBackground
-	call DrawBlock
 	call DrawCube
-	call Draw_Triangle
-	mov cx, 3
-	mov [Height_Tower], cx
-	call Draw_Tower
-	call DrawPoint
 	
 	xor ax, ax
 	int 16h
@@ -283,28 +272,7 @@ start:
 	cmp [IsExit], 1
 	je cont
 	
-	;erase
-	call Erase_point
-	call Erase_Block
-	call Erase_Triangle
-	call Erase_Tower
-	
-	sub [Xpos_Triangle], 5
-	
-	sub [Xpos_Tower],5
-	
-	sub [Xpos_Blocks], 5
-	
-	sub [Xpos_Points], 5
-	
-	mov cx, [Height_Tower]
-	call Draw_Tower
-	
-	call DrawBlock
-	
-	call DrawPoint
-	
-	call Draw_Triangle
+	call Level_One
 	
 	call Cube_Move
 	
@@ -1082,18 +1050,15 @@ proc Draw_Tower
 	
 	mov [Ypos_Tower], bx
 	
-	xor si, si
+	call Copy_Background_Tower ; firstly we will copy the background
 	
 	;because cx has the number of blocks we want we can use it in a loop
 	@@draw_blocks:
 	push bx ; push y
 	push [Xpos_Tower] ; push x
 	
-	call Copy_Background_Tower ; firstly we will copy the background
-	
 	call DrawBlock_Stack ; then draw it
 	add bx, 18 ; add to y to draw the next block
-	inc si ; increase the counter of which block are we on - for copy background
 	loop @@draw_blocks
 	jmp @@end
 	
@@ -1106,68 +1071,33 @@ proc Draw_Tower
 	ret
 endp Draw_Tower
 
-;copy one by one the tower blocks to different vars
+;we have a copy background var that holds 1620 bytes - for maximum height of five blocks
 proc Copy_Background_Tower
-	PUSH_ALL_BP
+	PUSH_ALL
 	
-	;si holds which block are we on
-	
-	mov ax, [bp + 6] ; Ypos
+	mov ax, [Ypos_Tower] ; Ypos
 	mov bx, 320
 	mul bx
 	
 	mov di, ax
-	add di, [bp + 4] ; Xpos
+	add di, [Xpos_Tower] ; Xpos
 	
+	;the height of the tower is
+	;cx = 18 * [Height_Tower] = height (columns)
+	mov ax, [Height_Tower]
 	mov cx, 18
+	mul cx
+	
+	mov cx, ax
 	mov dx, 18
 	
-	call put_bx_offsetmatrix
-	
+	mov bx, offset matrix_erase_tower
 	mov [matrix], bx
 	call putMatrixInData
 
-	POP_ALL_BP
+	POP_ALL
 	ret
 endp Copy_Background_Tower
-
-; put in bx the offset of the var by the register si
-; in si we have the number of the block we want to copy
-proc put_bx_offsetmatrix
-
-	cmp si, 0
-	je @@first_block
-	
-	cmp si, 1
-	je @@second_block
-	
-	cmp si, 2
-	je @@third_block
-	
-	cmp si, 3
-	je @@fourth_block
-	
-	jmp @@fifth_block
-	
-	@@first_block:
-	mov bx, offset matrix_erase_tower ; the data will be stored in this var
-	jmp @@end
-	@@second_block:
-	mov bx, offset matrix_erase_tower1
-	jmp @@end
-	@@third_block:
-	mov bx, offset matrix_erase_tower2
-	jmp @@end
-	@@fourth_block:
-	mov bx, offset matrix_erase_tower3
-	jmp @@end
-	@@fifth_block:
-	mov bx, offset matrix_erase_tower4
-	
-	
-	@@end:
-	ret
-endp put_bx_offsetmatrix
 
 ;goes each block and paints on it his background
 proc Erase_Tower
@@ -1175,32 +1105,26 @@ proc Erase_Tower
 	
 	cmp [Tower_Alive], 0 ; check if even alive
 	je @@end
-
-	xor si, si
-	mov ax, [Ypos_Tower]
 	
-	@@erase_blocks:
-	;calculation of place
-	push ax
+	mov ax, [Ypos_Tower]
 	mov bx, 320
 	mul bx
+	
 	mov di, ax
 	add di, [Xpos_Tower]
+	
+	;calculation of what to put in cx where using putMatrixInScreen
+	
+	mov ax, [Height_Tower]
 	mov cx, 18
+	mul cx
+	
+	mov cx, ax
 	mov dx, 18
 	
-	;now we need to put in bx the offset of the var that hold the background
-	call put_bx_offsetmatrix
+	mov bx, offset matrix_erase_tower
 	mov [matrix], bx
-	
-	
-	call putMatrixInScreen ; draw background
-	inc si
-	pop ax
-	add ax, 18
-	cmp si, [Height_Tower]
-	jb @@erase_blocks
-
+	call putMatrixInScreen 
 
 	@@end:
 	POP_ALL
@@ -1223,8 +1147,8 @@ proc DrawPoint
 	mov di, ax
 	add di, [Xpos_Points]
 	
-	mov cx, 11 ; rows
-	mov dx, 6 ; col
+	mov cx, 11 ; height
+	mov dx, 6 ; width
 
 	call Copy_Background_Points ; copy the background
 	
@@ -1549,8 +1473,6 @@ proc Check_Fall
 
 	;we need to go down - no floor
 	mov [Is_Falling], 1
-	mov [bool_landed_block], 1
-	mov [Is_On_Block], 0
 	mov [can_jump], 0
 	add [Ypos], 6
 	jmp @@end
@@ -1562,8 +1484,6 @@ proc Check_Fall
 	;did hit floor
 	mov [can_jump], 1 ; we can jump again - in case we are falling we will cancel the jump movement so when when stop falling we cant jump
 	mov [Is_Falling], 0
-	mov [bool_landed_block], 0 ; reset bools
-	mov [Is_On_Block], 0
 	mov [Is_Going_down], 0
 	
 	@@end:
@@ -1695,20 +1615,14 @@ proc Check_Where_Cube
 	cmp al, 0 ; in the air - no floor
 	je @@falling
 	
-	mov [Is_On_Block], 1
 	mov [can_jump], 1
-	mov [bool_landed_block], 1
 	jmp @@end
 	
 	@@falling:
 	mov [Is_Falling], 1
-	mov [Is_On_Block], 0
-	mov [bool_landed_block], 0
 	jmp @@end
 	
 	@@on_ground:
-	mov [Is_On_Block], 0
-	mov [bool_landed_block], 0
 	mov [Is_Going_up], 0
 	mov [Is_Going_down], 0
 
@@ -1759,6 +1673,49 @@ proc Cube_Move
 	POP_ALL
 	ret
 endp Cube_Move
+
+proc DrawObjects
+	call Draw_Tower
+	
+	call DrawBlock
+	
+	call DrawPoint
+	
+	call Draw_Triangle
+	ret
+endp DrawObjects
+
+proc Level_One
+	cmp [Objects_Placed], 1 ; check if we already placed the objects
+	je @@move_objects
+	mov [Objects_Placed], 1 ; signs that we are putting the objects in place
+	mov [Height_Tower], 3
+	mov [Xpos_Blocks], 250
+	mov [Ypos_Blocks], 143
+	
+	mov [Xpos_Triangle], 610
+	mov [Ypos_Triangle], 152
+	
+	mov [Xpos_Tower], 400
+	
+	call Draw_Tower ; we need to draw the objects first to erase them after
+	call DrawBlock
+	call Draw_Triangle
+	
+	@@move_objects:
+	call Erase_Block
+	call Erase_Triangle
+	call Erase_Tower
+	
+	sub [Xpos_Triangle], 5
+	sub [Xpos_Tower],5
+	sub [Xpos_Blocks], 5
+	
+	call Draw_Tower
+	call DrawBlock
+	call Draw_Triangle
+	ret
+endp Level_One
 
 proc printAxDec  
 	   
