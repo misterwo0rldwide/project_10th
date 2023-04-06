@@ -107,26 +107,22 @@ DATASEG
 	; - blocks - 
 	;cube
 	
-	Xpos_Blocks dw 250
-	Ypos_Blocks dw 143
-	Blocks_Alive db 1
+	Xpos_Blocks dw -1, -1, -1, -1, -1
+	Ypos_Blocks dw -1, -1, -1, -1, -1
 	
 	
 	;Triangle
-	Xpos_Triangle dw 610
-	Ypos_Triangle dw 152
-	Triangle_Alive db 1
+	Xpos_Triangle dw -1, -1, -1, -1, -1
+	Ypos_Triangle dw -1, -1, -1, -1, -1
 	
 	;Tower
-	Xpos_Tower dw 400
-	Ypos_Tower dw ? ; ypos is calculated by how many blocks we want
-	Height_Tower dw ?
-	Tower_Alive db 1
+	Xpos_Tower dw -1, -1, -1, -1, -1
+	Ypos_Tower dw -1, -1, -1, -1, -1 ; ypos is calculated by how many blocks we want
+	Height_Tower dw -1, -1, -1, -1, -1
 	
 	;Bonus Points
-	Xpos_Points dw 100
-	Ypos_Points dw 120
-	Point_Alive db ?
+	Xpos_Points dw -1
+	Ypos_Points dw -1
 	
 	;levels
 	Objects_Placed db ?
@@ -134,7 +130,7 @@ DATASEG
 	; -- drawing using matrix --
 	
 	;erasing cube
-	matrix_erase_cube db 324 dup (?)
+	matrix_erase_cube db 324 dup (?) ; one main cube
 			
 	; - triangle block -
 	matrix_triangle db  -2,  -2,   -2,  -2,  -2,  -2,  -2,  -2,0ffh,0ffh,-2,  -2,   -2,  -2,  -2,  -2,    -2,-2
@@ -148,7 +144,7 @@ DATASEG
 					db 0ffh,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,0ffh
 	
 	;erasing the triangle
-	matrix_erase_triangle db 162 dup (?)
+	matrix_erase_triangle db 162 dup (?), 162 dup (?), 162 dup (?), 162 dup (?), 162 dup (?) ; five triagnles
 	
 	; -- blocks --
 	matrix_blocks  db 0ffh,0ffh,0ffh,0ffh,0ffh,0ffh,0ffh,0ffh,0ffh,0ffh,0ffh,0ffh,0ffh,0ffh,0ffh,0ffh,0ffh,0ffh
@@ -171,7 +167,7 @@ DATASEG
 					db 0ffh,0ffh,0ffh,0ffh,0ffh,0ffh,0ffh,0ffh,0ffh,0ffh,0ffh,0ffh,0ffh,0ffh,0ffh,0ffh,0ffh,0ffh
 
 	;erasing block
-	matrix_erase_blocks db 324 dup (?)
+	matrix_erase_blocks db 324 dup (?), 324 dup (?), 324 dup (?), 324 dup (?), 324 dup (?) ; five blocks
 	
 	;bonus points
 	matrix_bonus    db 0fh,0fh,0fh,0fh,0fh,0fh
@@ -187,10 +183,10 @@ DATASEG
 					db 0fh,0fh,0fh,0fh,0fh,0fh
 	
 	;erasing point
-	matrix_erase_point db 66 dup (?)
+	matrix_erase_point db 66 dup (?) ; one bonus point
 	
 	;erase tower
-	matrix_erase_tower db 1620 dup (?)
+	matrix_erase_tower db 1620 dup (?), 1620 dup (?), 1620 dup (?), 1620 dup (?), 1620 dup (?) ; five towers
 
 	
 	
@@ -220,14 +216,15 @@ DATASEG
 	BmpFileErrorMsg    	db 'Error At Opening Bmp File ', 0dh, 0ah,'$'
 	
 	;screens
-	FileName_background db 'back.bmp' ,0
-	FileName_start db 'start.bmp', 0
-	FileName_EnterName db 'name.bmp', 0
-	FileName_Settings db 'settings.bmp', 0
-	FileName_colors db 'colors.bmp', 0
+	FileName_background db 'back.bmp' ,0 ; background - main screen
+	FileName_start db 'start.bmp', 0 ; start screen (before start of game)
+	FileName_EnterName db 'name.bmp', 0 ; middle button start screen -  enter your name
+	FileName_Settings db 'settings.bmp', 0 ; right button in start screen
+	FileName_Guide db 'guide.bmp', 0 ; left button in start screen - how to play
 	
 	;cube rotation frames
-	FileName_cube   db 'cube.bmp'  , 0
+	;every number is the angle of the cube
+	FileName_cube   db 'cube.bmp'  , 0 ; angle 90
 	FileName_cube5  db 'cube5.bmp' , 0
 	FileName_cube10 db 'cube10.bmp', 0
 	FileName_cube15 db 'cube15.bmp', 0
@@ -253,6 +250,8 @@ start:
 	mov ds, ax
 ; --------------------------
 ; Your code here
+
+	mov bx, offset matrix_erase_tower
 
 	call SetGraphics
 	
@@ -426,7 +425,7 @@ proc Guiding_Screen
 	mov ax, 2
 	int 33h
 	
-	mov dx, offset FileName_colors
+	mov dx, offset FileName_Guide
 	DRAW_FULL_BMP
 	
 	mov ax, 1
@@ -827,39 +826,51 @@ proc Copy_Background_Cube
 endp Copy_Background_Cube
 
 ;block - we need to check where is the cube to know how to print it
-;we will print it with thirds - so it will enter smoothly into screen form right
+;goes through every block and draws if on screen
 proc DrawBlock
 	PUSH_ALL
 	
-	cmp [Xpos_Blocks], 301 ; if this is out of screen dont draw
-	ja @@kill_block
+	xor si, si
+	xor bp, bp
+	mov cx, 5
+	@@drawAllBlocks:
+	push cx
+	cmp [Xpos_Blocks + si], 301 ; if this is out of screen dont draw
+	ja @@end_loop
 	
-	mov [Blocks_Alive], 1
 	
 	;now we calculate the place
-	mov ax, [Ypos_Blocks]
+	mov ax, [Ypos_Blocks + si]
 	mov bx, 320
 	mul bx
 	
 	mov di, ax
-	add di, [Xpos_Blocks]
+	add di, [Xpos_Blocks + si]
 	
 	mov cx, 18
 	mov dx, 18
 	
 	;firstly we will copy the background
-	call Copy_Background_Blocks
+	;because the cube vars take 324 bytes we need to use different register - bp
+	mov bx, offset matrix_erase_blocks	; the data will be stored in this var
+	add bx, bp ; offset add by bp
+	mov [matrix], bx
+	
+	call putMatrixInData
 	
 	mov bx, offset matrix_blocks
 	mov [matrix], bx 
 	
 	call putMatrixInScreen
-	jmp @@end
 	
-	@@kill_block:
-	mov [Blocks_Alive], 0
+	add bp, 324 ; the other block
 	
-	@@end:
+	@@end_loop:
+	
+	add si, 2
+	pop cx
+	loop @@drawAllBlocks
+	
 	POP_ALL
 	ret
 endp DrawBlock
@@ -868,54 +879,49 @@ endp DrawBlock
 proc Erase_Block
 	PUSH_ALL
 
-	cmp [Blocks_Alive], 0
-	je @@end
-
-	mov ax, [Ypos_Blocks]
+	xor si, si
+	mov cx, 5
+	xor bp, bp
+	@@drawAllBlocks:
+	push cx
+	cmp [Xpos_Blocks + si], 301 ; if this is out of screen dont draw
+	ja @@end_loop
+	
+	
+	;now we calculate the place
+	mov ax, [Ypos_Blocks + si]
 	mov bx, 320
 	mul bx
 	
 	mov di, ax
-	add di, [Xpos_Blocks]
+	add di, [Xpos_Blocks + si]
 	
 	mov cx, 18
 	mov dx, 18
 	
 	mov bx, offset matrix_erase_blocks
-	mov [matrix], bx
+	add bx, bp
+	mov [matrix], bx 
 	
 	call putMatrixInScreen
+	
+	add bp, 324 ; the other block
+	
+	@@end_loop:
+	
+	add si, 2
+	pop cx
+	loop @@drawAllBlocks
 
-	@@end:
 	POP_ALL
 	ret
 endp Erase_Block
-
-
-;move background to var
-
-proc Copy_Background_Blocks
-	PUSH_ALL
-	
-	mov bx, offset matrix_erase_blocks ; the data will be stored in this var
-	mov [matrix], bx
-	
-	call putMatrixInData
-
-	POP_ALL
-	ret
-endp Copy_Background_Blocks
 
 ;draws blocks using the stack - mainly for drawing towers
 ;[bp + 4] = x
 ;[bp + 6] = y
 proc DrawBlock_Stack
 	PUSH_ALL_BP
-	
-	cmp [word bp + 4], 301 ; if this is out of screen dont draw
-	ja @@kill_block
-	
-	mov [Blocks_Alive], 1
 	
 	;now we calculate the place
 	mov ax, [word bp + 6]
@@ -932,12 +938,6 @@ proc DrawBlock_Stack
 	mov [matrix], bx
 	
 	call putMatrixInScreen
-	jmp @@end
-	
-	@@kill_block:
-	mov [Blocks_Alive], 0
-	
-	@@end:
 	POP_ALL_BP
 	ret 4
 endp DrawBlock_Stack
@@ -946,34 +946,44 @@ endp DrawBlock_Stack
 proc Draw_Triangle
 	PUSH_ALL
 	
-	cmp [Xpos_Triangle], 301 ; if this is out of screen dont draw
-	ja @@kill_triangle
+	xor si, si
+	xor bp, bp
+	mov cx, 5
+	@@drawTriangles:
+	push cx
+	cmp [Xpos_Triangle + si], 301 ; if this is out of screen dont draw
+	ja @@end_loop
 	
-	mov [Triangle_Alive], 1
 	
 	; di = 320 * Ypos + Xpos
-	mov ax, [Ypos_Triangle]
+	mov ax, [Ypos_Triangle + si]
 	mov bx, 320
 	mul bx
 	
 	mov di, ax
-	add di, [Xpos_Triangle]
+	add di, [Xpos_Triangle + si]
 	
 	mov cx, 9 ; rows
 	mov dx, 18 ; cols
 	
-	call Copy_Background_Triangle ; we will copy the background before drawing
+	mov bx, offset matrix_erase_triangle ; the data will be stored in this var
+	add bx, bp
+	mov [matrix], bx
+	
+	call putMatrixInData ; we will copy the background before drawing
 	
 	mov bx, offset matrix_triangle
 	mov [matrix], bx
 
 	call putMatrixInScreen
-	jmp @@end
 	
-	@@kill_triangle:
-	mov [Triangle_Alive], 0
-
-	@@end:
+	add bp, 162
+	
+	@@end_loop:
+	add si, 2
+	pop cx
+	loop @@drawTriangles
+	
 	POP_ALL
 	ret
 endp Draw_Triangle
@@ -981,44 +991,44 @@ endp Draw_Triangle
 
 proc Erase_Triangle
 	PUSH_ALL
-
-	cmp [Triangle_Alive], 0 ; if it is out of bound dont erase or draw
-	je @@end
-
-	mov ax, [Ypos_Triangle]
+	
+	xor si, si
+	xor bp, bp
+	mov cx, 5
+	@@drawTriangles:
+	push cx
+	
+	cmp [Xpos_Triangle + si], 301 ; if this is out of screen dont draw
+	ja @@end_loop
+	
+	
+	; di = 320 * Ypos + Xpos
+	mov ax, [Ypos_Triangle + si]
 	mov bx, 320
 	mul bx
 	
 	mov di, ax
-	add di, [Xpos_Triangle]
+	add di, [Xpos_Triangle + si]
 	
-	mov cx, 9
-	mov dx, 18
+	mov cx, 9 ; rows
+	mov dx, 18 ; cols
 	
-	mov bx, offset matrix_erase_triangle
+	mov bx, offset matrix_erase_triangle ; the data will be stored in this var
+	add bx, bp
 	mov [matrix], bx
 	
-	call putMatrixInScreen
+	call putMatrixInScreen ; we will copy the background before drawing
+	
+	add bp, 162
+	
+	@@end_loop:
+	add si, 2
+	pop cx
+	loop @@drawTriangles
 
-	@@end:
 	POP_ALL
 	ret
 endp Erase_Triangle
-
-
-;move background to var
-
-proc Copy_Background_Triangle
-	PUSH_ALL
-	
-	mov bx, offset matrix_erase_triangle ; the data will be stored in this var
-	mov [matrix], bx
-	
-	call putMatrixInData
-
-	POP_ALL
-	ret
-endp Copy_Background_Triangle
 
 ;================================================
 ; Description -  draws a tower of blocks
@@ -1029,13 +1039,16 @@ endp Copy_Background_Triangle
 proc Draw_Tower
 	PUSH_ALL
 	
-	
-	cmp [Xpos_Tower], 301
-	ja @@kill_tower
+	xor si, si
+	xor bp, bp
+	mov cx, 5
+	@@drawAllTowers:
+	push cx
+	cmp [Xpos_Tower + si], 301
+	ja @@end_loop
 	
 	;we will save the tower height
-	mov cx, [Height_Tower]
-	mov [Tower_Alive], 1
+	mov cx, [Height_Tower + si]
 	
 	;firstly we will calculate the ypos
 	;how - (height of the platfrom)161 - cx * 18 = Ypos_Tower
@@ -1048,25 +1061,25 @@ proc Draw_Tower
 	mov bx, 161
 	sub bx, ax
 	
-	mov [Ypos_Tower], bx
+	mov [Ypos_Tower + si], bx
 	
 	call Copy_Background_Tower ; firstly we will copy the background
 	
+	add bp, 1620 ; a whole tower
+	
 	;because cx has the number of blocks we want we can use it in a loop
-	@@draw_blocks:
+	@@draw_blocks: ; basically it draws the tower block by block from top to down
 	push bx ; push y
-	push [Xpos_Tower] ; push x
+	push [Xpos_Tower + si] ; push x
 	
 	call DrawBlock_Stack ; then draw it
 	add bx, 18 ; add to y to draw the next block
 	loop @@draw_blocks
-	jmp @@end
+	@@end_loop:
+	add si, 2
+	pop cx
+	loop @@drawAllTowers
 	
-	
-	@@kill_tower:
-	mov [Tower_Alive], 0
-	
-	@@end:
 	POP_ALL
 	ret
 endp Draw_Tower
@@ -1075,16 +1088,16 @@ endp Draw_Tower
 proc Copy_Background_Tower
 	PUSH_ALL
 	
-	mov ax, [Ypos_Tower] ; Ypos
+	mov ax, [Ypos_Tower + si] ; Ypos
 	mov bx, 320
 	mul bx
 	
 	mov di, ax
-	add di, [Xpos_Tower] ; Xpos
+	add di, [Xpos_Tower + si] ; Xpos
 	
 	;the height of the tower is
 	;cx = 18 * [Height_Tower] = height (columns)
-	mov ax, [Height_Tower]
+	mov ax, [Height_Tower + si]
 	mov cx, 18
 	mul cx
 	
@@ -1092,6 +1105,7 @@ proc Copy_Background_Tower
 	mov dx, 18
 	
 	mov bx, offset matrix_erase_tower
+	add bx, bp ; add to which tower we are saving the background
 	mov [matrix], bx
 	call putMatrixInData
 
@@ -1103,19 +1117,24 @@ endp Copy_Background_Tower
 proc Erase_Tower
 	PUSH_ALL
 	
-	cmp [Tower_Alive], 0 ; check if even alive
-	je @@end
+	xor si, si
+	xor bp, bp
+	mov cx, 5
+	@@eraseAllTowers:
+	push cx
+	cmp [Xpos_Tower + si], 301
+	ja @@end_loop
 	
-	mov ax, [Ypos_Tower]
+	mov ax, [Ypos_Tower + si]
 	mov bx, 320
 	mul bx
 	
 	mov di, ax
-	add di, [Xpos_Tower]
+	add di, [Xpos_Tower + si]
 	
 	;calculation of what to put in cx where using putMatrixInScreen
 	
-	mov ax, [Height_Tower]
+	mov ax, [Height_Tower + si]
 	mov cx, 18
 	mul cx
 	
@@ -1123,10 +1142,16 @@ proc Erase_Tower
 	mov dx, 18
 	
 	mov bx, offset matrix_erase_tower
+	add bx, bp
 	mov [matrix], bx
 	call putMatrixInScreen 
-
-	@@end:
+	
+	@@end_loop:
+	add si, 2
+	add bp, 1620
+	pop cx
+	loop @@eraseAllTowers
+	
 	POP_ALL
 	ret
 endp Erase_Tower
@@ -1135,9 +1160,7 @@ proc DrawPoint
 	PUSH_ALL
 	
 	cmp [Xpos_Points], 310
-	ja @@kill_point
-	
-	mov [Point_Alive], 1
+	ja @@end
 
 	;calculating the place
 	mov ax, [Ypos_Points]
@@ -1156,10 +1179,6 @@ proc DrawPoint
 	mov [matrix], bx
 	
 	call putMatrixInScreen ; drawing
-	jmp @@end
-	
-	@@kill_point:
-	mov [Point_Alive], 0
 	
 	@@end:
 	POP_ALL
@@ -1178,8 +1197,8 @@ endp Copy_Background_Points
 proc Erase_point
 	PUSH_ALL
 	
-	cmp [Point_Alive], 0
-	je @@end
+	cmp [Xpos_Points], 310
+	ja @@end
 
 	;calculating the place
 	mov ax, [Ypos_Points]
@@ -1391,20 +1410,28 @@ endp Check_Blocks
 
 ;if we hit a triange al will be one
 ;we will check left side down and right side down
+;this will check all triangle at once
 proc Check_Triangle
+
+	xor si, si
+	@@checkEachTriangle:
+	
+	mov ax, [Xpos_Triangle]
+	cmp ax, 301
+	ja @@end_loop
 	
 	;we will check two points - left down and right down (collision check)
 	
 	;save triangle place
-	mov ax, [Xpos_Triangle] ; left side of triangle
-	mov bx, [Ypos_Triangle] ; top of triangle
+	mov ax, [Xpos_Triangle + si] ; left side of triangle
+	mov bx, [Ypos_Triangle + si] ; top of triangle
 	
 	;side of triangle
 	mov di, ax 
 	add di, 17 ;end of triangle in x
 	
-	mov si, bx
-	add si, 8 ; end of triangle in y
+	mov bp, bx
+	add bp, 8 ; end of triangle in y
 	
 	;left down
 	mov cx, [Xpos]
@@ -1437,16 +1464,21 @@ proc Check_Triangle
 	
 	;now we will just copy the above
 	cmp cx, ax
-	jb @@end_check ;if the cube is left to the triangle
+	jb @@end_loop ;if the cube is left to the triangle
 	
 	cmp cx, di
-	ja @@end_check ; if the cube is right to the triangle
+	ja @@end_loop ; if the cube is right to the triangle
 	
 	cmp dx, bx
-	jb @@end_check ; if the cube is above the triangle
+	jb @@end_loop ; if the cube is above the triangle
 	
 	;if it got here it means we are in the triangle
 	jmp @@end_game
+	
+	@@end_loop:
+	add si, 2
+	cmp si, 10 ; five objects
+	jbe @@checkEachTriangle
 	
 	
 
@@ -1461,7 +1493,7 @@ proc Check_Triangle
 	ret
 endp Check_Triangle
 
-;in case the jump has ended and we are not on the floor
+;in case the jump has ended and we are not on the flooro
 ;this will check if we have floor under us while falling from a block - when not jumpimg
 proc Check_Fall
 	PUSH_ALL
