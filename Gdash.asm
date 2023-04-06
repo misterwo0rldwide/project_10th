@@ -271,7 +271,7 @@ start:
 	cmp [IsExit], 1
 	je cont
 	
-	call Level_One
+	call Level_Two
 	
 	call Cube_Move
 	
@@ -863,10 +863,8 @@ proc DrawBlock
 	
 	call putMatrixInScreen
 	
-	add bp, 324 ; the other block
-	
 	@@end_loop:
-	
+	add bp, 324 ; the other block
 	add si, 2
 	pop cx
 	loop @@drawAllBlocks
@@ -977,9 +975,8 @@ proc Draw_Triangle
 
 	call putMatrixInScreen
 	
-	add bp, 162
-	
 	@@end_loop:
+	add bp, 162
 	add si, 2
 	pop cx
 	loop @@drawTriangles
@@ -1019,9 +1016,8 @@ proc Erase_Triangle
 	
 	call putMatrixInScreen ; we will copy the background before drawing
 	
-	add bp, 162
-	
 	@@end_loop:
+	add bp, 162
 	add si, 2
 	pop cx
 	loop @@drawTriangles
@@ -1065,8 +1061,6 @@ proc Draw_Tower
 	
 	call Copy_Background_Tower ; firstly we will copy the background
 	
-	add bp, 1620 ; a whole tower
-	
 	;because cx has the number of blocks we want we can use it in a loop
 	@@draw_blocks: ; basically it draws the tower block by block from top to down
 	push bx ; push y
@@ -1077,6 +1071,7 @@ proc Draw_Tower
 	loop @@draw_blocks
 	@@end_loop:
 	add si, 2
+	add bp, 1620 ; a whole tower
 	pop cx
 	loop @@drawAllTowers
 	
@@ -1722,13 +1717,13 @@ proc Level_One
 	je @@move_objects
 	mov [Objects_Placed], 1 ; signs that we are putting the objects in place
 	mov [Height_Tower], 3
-	mov [Xpos_Blocks], 250
+	mov [Xpos_Blocks], 400
 	mov [Ypos_Blocks], 143
 	
-	mov [Xpos_Triangle], 610
+	mov [Xpos_Triangle], 660
 	mov [Ypos_Triangle], 152
 	
-	mov [Xpos_Tower], 400
+	mov [Xpos_Tower], 520
 	
 	call Draw_Tower ; we need to draw the objects first to erase them after
 	call DrawBlock
@@ -1740,14 +1735,69 @@ proc Level_One
 	call Erase_Tower
 	
 	sub [Xpos_Triangle], 5
+	cmp [Xpos_Triangle], 6
+	jb @@end_level
 	sub [Xpos_Tower],5
 	sub [Xpos_Blocks], 5
 	
 	call Draw_Tower
 	call DrawBlock
 	call Draw_Triangle
+	jmp @@end
+	
+	@@end_level:
+	mov [Objects_Placed], 0
+	
+	@@end:
 	ret
 endp Level_One
+
+proc Level_Two
+	cmp [Objects_Placed], 1
+	je @@move_objects
+	mov [Objects_Placed], 1 ; signs that we are putting the objects in place
+	mov [Xpos_Triangle], 360
+	mov [Ypos_Triangle], 152
+	mov [Xpos_Tower], 490
+	mov [Height_Tower], 3
+	mov [Xpos_Tower + 2], 580
+	mov [Height_Tower + 2], 3
+	mov [Xpos_Triangle + 2], 710
+	mov [Ypos_Triangle + 2], 152
+	
+	call Draw_Tower
+	call Draw_Triangle
+	
+	@@move_objects:
+	call Erase_Tower
+	call Erase_Triangle
+	
+	mov ax, 5
+
+	sub [Xpos_Triangle], ax
+	sub [Xpos_Triangle + 2], ax
+	
+	cmp [Xpos_Triangle + 2], 6
+	jb @@end_level
+	
+	sub [Xpos_Tower], ax
+	sub [Xpos_Tower + 2], ax
+	cmp [Xpos_Tower + 2], 80
+	ja @@cont
+	
+	mov ax, bx
+	
+	@@cont:
+	call Draw_Tower
+	call Draw_Triangle
+	jmp @@end
+
+	@@end_level:
+	mov [Objects_Placed], 0
+
+	@@end:
+	ret
+endp Level_Two
 
 proc printAxDec  
 	   
