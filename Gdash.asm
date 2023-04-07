@@ -64,6 +64,9 @@ DATASEG
 ; --------------------------
 ; Your variables here
 
+	;random
+	RndCurrentPos dw start
+
 	; -- player --
 	
 	;name
@@ -126,6 +129,7 @@ DATASEG
 	
 	;levels
 	Objects_Placed db ?
+	CurentLevel db ?
 	
 	; -- drawing using matrix --
 	
@@ -271,13 +275,13 @@ start:
 	cmp [IsExit], 1
 	je cont
 	
-	call Level_Two
+	call PickLevel
 	
 	call Cube_Move
 	
 	call CountSeconds
 	
-	push 70 ; ms
+	push 55 ; ms
 	call LoopDelay
 	jmp draw
 	
@@ -1328,6 +1332,8 @@ endp Check_white_Under
 proc Check_Hit
 	PUSH_ALL
 	
+	call Check_Point
+	
 	call Check_Blocks
 	cmp al, 1
 	je @@end_game
@@ -1349,6 +1355,100 @@ proc Check_Hit
 	ret
 endp Check_Hit
 
+;check if we are about to hit a point
+proc Check_Point
+	PUSH_ALL
+	
+	;we will check x and y
+	
+	mov ax, [Xpos_Points] ; all sides of the cube 
+	mov bx, [Ypos_Points]
+	mov si, ax
+	add si, 6 ;end of point X
+	mov di, bx
+	add di, 11 ; end of point Y
+	
+	mov cx, [Xpos]
+	add cx, 25 ; a little bit forward of cube
+	mov dx, [Ypos]
+	
+	;right up point of cube
+	call CheckIsInPoint
+	cmp bp, 1
+	je @@catch_point
+	
+	;down right side of cube
+	add dx, 9
+	call CheckIsInPoint
+	cmp bp, 1
+	je @@catch_point
+
+	add dx, 12
+	call CheckIsInPoint
+	cmp bp, 1
+	je @@catch_point
+	
+	sub cx, 9
+	call CheckIsInPoint
+	cmp bp, 1
+	je @@catch_point
+	
+	sub cx, 9
+	call CheckIsInPoint
+	cmp bp, 1
+	je @@catch_point
+	
+	sub dx, 25
+	call CheckIsInPoint
+	cmp bp, 1
+	je @@catch_point
+	
+	add cx, 9
+	call CheckIsInPoint
+	cmp bp, 1
+	je @@catch_point
+	
+	
+	jmp @@end
+
+	@@catch_point:
+	inc [BonusPointsCounter] ; sign that we hit a bonus point
+	call Erase_point
+	mov [Xpos_Points], -1
+
+	@@end:
+	POP_ALL
+	ret
+endp Check_Point
+
+;we get the cube X and Y from the 
+;retun bp 1 if we hit bonus point
+proc CheckIsInPoint
+	
+	xor bp, bp
+	;check X
+	
+	cmp cx, ax ; left side of point
+	jb @@end ;  if below we are left to the point
+	
+	cmp cx, si ; right side of point
+	ja @@end ; if above we are right to the point
+	
+	;check Y
+	
+	cmp dx, bx ; up side of the point
+	jb @@end ; above the point
+	
+	cmp dx, di ; down side of the point
+	ja @@end; below the point
+	
+	;if it got here we are in the point
+	inc bp
+
+	@@end:
+	ret
+endp CheckIsInPoint
+
 ;if we hit blocks al will be one
 proc Check_Blocks
 	;we will check three pixels to the right up and down
@@ -1360,20 +1460,17 @@ proc Check_Blocks
 	cmp al, 0ffh ; check white
 	je @@end_game
 	
-	mov ah, 0dh
 	inc cx
 	int 10h
 	cmp al, 0ffh ; check white
 	je @@end_game
 
-	mov ah, 0dh
 	inc cx
 	int 10h
 	cmp al, 0ffh ; check white
 	je @@end_game
 	
 	;now we go down
-	mov ah,0Dh
 	mov cx,[Xpos]
 	mov dx, [Ypos]
 	add cx, 18	
@@ -1382,16 +1479,38 @@ proc Check_Blocks
 	cmp al, 0ffh ; check white
 	je @@end_game
 
-	mov ah, 0dh
 	inc cx
 	int 10h
 	cmp al, 0ffh ; check white
 	je @@end_game
 
-	mov ah, 0dh
 	inc cx
 	int 10h
 	cmp al, 0ffh ; check white
+	je @@end_game
+	
+	;now we go up
+	mov cx,[Xpos]
+	mov dx, [Ypos]
+	add cx, 18	
+	dec dx
+	int 10H ; AL = COLOR
+	cmp al, 0ffh ; check white
+	je @@end_game
+	
+	dec dx
+	int 10h
+	cmp al, 0ffh
+	je @@end_game
+	
+	sub cx, 9
+	int 10h
+	cmp al, 0ffh
+	je @@end_game
+	
+	sub cx, 9
+	int 10h
+	cmp al, 0ffh
 	je @@end_game
 	
 	xor al, al
@@ -1411,7 +1530,7 @@ proc Check_Triangle
 	xor si, si
 	@@checkEachTriangle:
 	
-	mov ax, [Xpos_Triangle]
+	mov ax, [Xpos_Triangle + si]
 	cmp ax, 301
 	ja @@end_loop
 	
@@ -1701,17 +1820,47 @@ proc Cube_Move
 	ret
 endp Cube_Move
 
-proc DrawObjects
-	call Draw_Tower
+;picks a random level each time a level has ended
+proc PickLevel
+	PUSH_ALL
 	
-	call DrawBlock
+	;if even the last level has ended
+	cmp [Objects_Placed], 1 ; if a level is in screen then dont create another level
+	je @@put_level
 	
-	call DrawPoint
+	mov bl, 1 ; min level
+	mov bh, 2 ; max numbers of levels
+	call RandomByCs
+	;now al has the number of the level
+	mov [CurentLevel], al
 	
-	call Draw_Triangle
+	@@put_level:
+	mov al, [CurentLevel]
+	
+	cmp al, 1
+	je @@level_one
+	
+	cmp al, 2
+	je @@level_two
+	
+	@@level_one:
+	call Level_One
+	jmp @@end
+	
+	@@level_two:
+	call Level_Two
+	jmp @@end
+	
+	
+	@@end:
+	POP_ALL
 	ret
-endp DrawObjects
-
+endp PickLevel
+;
+;
+;		█
+;       █
+; █     █     ▲
 proc Level_One
 	cmp [Objects_Placed], 1 ; check if we already placed the objects
 	je @@move_objects
@@ -1735,8 +1884,8 @@ proc Level_One
 	call Erase_Tower
 	
 	sub [Xpos_Triangle], 5
-	cmp [Xpos_Triangle], 6
-	jb @@end_level
+	cmp [Xpos_Triangle], 64000
+	ja @@end_level
 	sub [Xpos_Tower],5
 	sub [Xpos_Blocks], 5
 	
@@ -1751,7 +1900,11 @@ proc Level_One
 	@@end:
 	ret
 endp Level_One
-
+;
+;               •
+;        █		█
+;        █		
+; ▲      █		       ▲
 proc Level_Two
 	cmp [Objects_Placed], 1
 	je @@move_objects
@@ -1760,39 +1913,43 @@ proc Level_Two
 	mov [Ypos_Triangle], 152
 	mov [Xpos_Tower], 490
 	mov [Height_Tower], 3
-	mov [Xpos_Tower + 2], 580
-	mov [Height_Tower + 2], 3
+	mov [Xpos_Blocks], 580
+	mov [Ypos_Blocks], 107
+	mov [Xpos_Points], 586
+	mov [Ypos_Points], 92
 	mov [Xpos_Triangle + 2], 710
 	mov [Ypos_Triangle + 2], 152
 	
 	call Draw_Tower
 	call Draw_Triangle
+	call DrawBlock
+	call DrawPoint
 	
 	@@move_objects:
 	call Erase_Tower
 	call Erase_Triangle
+	call Erase_Block
+	call Erase_point
 	
 	mov ax, 5
 
 	sub [Xpos_Triangle], ax
 	sub [Xpos_Triangle + 2], ax
-	
-	cmp [Xpos_Triangle + 2], 6
-	jb @@end_level
+	cmp [Xpos_Triangle + 2], 64000
+	ja @@end_level
 	
 	sub [Xpos_Tower], ax
-	sub [Xpos_Tower + 2], ax
-	cmp [Xpos_Tower + 2], 80
-	ja @@cont
+	sub [Xpos_Blocks], ax
+	sub [Xpos_Points], ax
 	
-	mov ax, bx
-	
-	@@cont:
 	call Draw_Tower
 	call Draw_Triangle
+	call DrawBlock
+	call DrawPoint
 	jmp @@end
-
+	
 	@@end_level:
+	
 	mov [Objects_Placed], 0
 
 	@@end:
@@ -2211,6 +2368,86 @@ proc putMatrixInData
     ret
 endp putMatrixInData 
 
+; Description  : get RND between any bl and bh includs (max 0 -255)
+; Input        : 1. Bl = min (from 0) , BH , Max (till 255)
+; 			     2. RndCurrentPos a  word variable,   help to get good rnd number
+; 				 	Declre it at DATASEG :  RndCurrentPos dw ,0
+;				 3. EndOfCsLbl: is label at the end of the program one line above END start		
+; Output:        Al - rnd num from bl to bh  (example 50 - 150)
+; More Info:
+; 	Bl must be less than Bh 
+; 	in order to get good random value again and agin the Code segment size should be 
+; 	at least the number of times the procedure called at the same second ... 
+; 	for example - if you call to this proc 50 times at the same second  - 
+; 	Make sure the cs size is 50 bytes or more 
+; 	(if not, make it to be more) 
+proc RandomByCs
+    push es
+	push si
+	push di
+	
+	mov ax, 40h
+	mov	es, ax
+	
+	sub bh,bl  ; we will make rnd number between 0 to the delta between bl and bh
+			   ; Now bh holds only the delta
+	cmp bh,0
+	jz @@ExitP
+ 
+	mov di, [word RndCurrentPos]
+	call MakeMask ; will put in si the right mask according the delta (bh) (example for 28 will put 31)
+	
+RandLoop: ;  generate random number 
+	mov ax, [es:06ch] ; read timer counter
+	mov ah, [byte cs:di] ; read one byte from memory (from semi random byte at cs)
+	xor al, ah ; xor memory and counter
+	
+	; Now inc di in order to get a different number next time
+	inc di
+	cmp di,(EndOfCsLbl - start - 1)
+	jb @@Continue
+	mov di, offset start
+@@Continue:
+	mov [word RndCurrentPos], di
+	
+	and ax, si ; filter result between 0 and si (the nask)
+	cmp al,bh    ;do again if  above the delta
+	ja RandLoop
+	
+	add al,bl  ; add the lower limit to the rnd num
+		 
+@@ExitP:	
+	pop di
+	pop si
+	pop es
+	ret
+endp RandomByCs
+
+; make mask acording to bh size 
+; output Si = mask put 1 in all bh range
+; example  if bh 4 or 5 or 6 or 7 si will be 7
+; 		   if Bh 64 till 127 si will be 127
+Proc MakeMask    
+    push bx
+
+	mov si,1
+    
+@@again:
+	shr bh,1
+	cmp bh,0
+	jz @@EndProc
+	
+	shl si,1 ; add 1 to si at right
+	inc si
+	
+	jmp @@again
+	
+@@EndProc:
+    pop bx
+	ret
+endp  MakeMask
+
+EndOfCsLbl:
 END start
 
 
