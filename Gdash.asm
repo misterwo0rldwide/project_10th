@@ -69,6 +69,9 @@ DATASEG
 
 	; -- player --
 	
+	;speed
+	delay dw 55
+	
 	;name
 	NamePlayer db PLAYER_NAME
 	
@@ -78,6 +81,9 @@ DATASEG
 	;seconds alive
 	counterSeconds db ?
 	seconds dw ?
+	
+	;score
+	FinalScore dw ?
 	
 	; -- Cube variables --
 	
@@ -225,6 +231,8 @@ DATASEG
 	FileName_EnterName db 'name.bmp', 0 ; middle button start screen -  enter your name
 	FileName_Settings db 'settings.bmp', 0 ; right button in start screen
 	FileName_Guide db 'guide.bmp', 0 ; left button in start screen - how to play
+	FileName_NameError db 'nameEr.bmp', 0 ; in case no chars have been entered in the name enter we print an error
+	FileName_End db 'end.bmp', 0
 	
 	;cube rotation frames
 	;every number is the angle of the cube
@@ -246,6 +254,14 @@ DATASEG
 	FileName_cube75 db 'cube75.bmp', 0
 	FileName_cube80 db 'cube80.bmp', 0
 	FileName_cube85 db 'cube85.bmp', 0
+	
+	;scores
+	
+	FileName_Scores db 'scores.txt', 0
+	FileHandleScores dw ?
+	ScoreInFile db "xxxx"
+	ScoreInNumbers dw ?
+	ErasePrevName db 13 dup ('x')
 ; --------------------------
 
 CODESEG
@@ -254,8 +270,6 @@ start:
 	mov ds, ax
 ; --------------------------
 ; Your code here
-
-	mov bx, offset matrix_erase_tower
 
 	call SetGraphics
 	
@@ -281,16 +295,153 @@ start:
 	
 	call CountSeconds
 	
-	push 55 ; ms
+	push [delay] ; ms
 	call LoopDelay
 	jmp draw
 	
 	cont:
+	call ChangeScoreHighest
 ; --------------------------
 
 exit:
 	mov ax, 4c00h
 	int 21h
+	
+	
+;calculating the score - each bonus point is 2 more seconds to total
+;total seconds + number of bonus point * 2 = score
+proc CalcScore
+	PUSH_ALL
+	
+	;number of bonus point * 2
+	xor ax, ax
+	mov al, [BonusPointsCounter]
+	shl ax, 1 ; multiply by two
+	
+	add ax, [seconds]
+
+	mov [FinalScore], ax
+
+
+	POP_ALL
+	ret
+endp CalcScore
+	
+	
+;dealing with the scores
+;will move to var "ScoreInNumbers" the score in the file
+proc ChangeScoreHighest
+	PUSH_ALL
+
+	;opening file
+	mov ah, 3dh
+	mov al, 2 ; read and write
+	mov dx, offset FileName_Scores
+	int 21h
+	mov [FileHandleScores], ax
+	
+	;now we read the number
+	mov ah, 3fh ; reading file
+	mov dx, offset ScoreInFile ; offset of var we want to copy to
+	mov bx, [FileHandleScores]
+	mov cx, 4 ; we want to read four chars
+	int 21h
+	
+	;now we want to turn it into a number and move into 
+	xor ax, ax
+	mov si, offset ScoreInFile ; will serve as offset
+	mov cx, 4 ; four chars
+	mov bl, 10 ; we will multiply each time by 10
+	
+	@@turnIntoNum:
+	xor dx, dx
+	mov dl, [byte si]
+	sub dl, '0' ; turn into real number (char -> number)
+	mul bl ;multiply by ten
+	add ax, dx ; add the digit to ax
+	inc si
+	loop @@turnIntoNum
+	
+	mov [ScoreInNumbers], ax
+	
+	;now we will get our score
+	call CalcScore
+	
+	;now we will put the highest score
+	call SetHighScore
+	
+	;now we close the file
+	
+	mov ah, 3eh
+	mov bx, [FileHandleScores]
+	int 21h
+
+	POP_ALL
+	ret
+endp ChangeScoreHighest
+
+;we will compare the two scores
+;if our score is higher then the highest then we put our in the var "ScoreInNumbers" and change it to text and put it in "ScoreInFile"
+proc SetHighScore
+	PUSH_ALL
+
+	mov ax, [FinalScore] ; our score
+	
+	cmp ax, [ScoreInNumbers] ; the best score
+	
+	jbe @@end ; if our score is equal or below the highest score
+	
+	mov [ScoreInNumbers], ax
+	
+	;now we need to copy it to the text form
+	mov si, offset ScoreInFile + 3 ;go to the end of var
+	mov cx, 4
+	mov bx, 10 ; to div every time by ten
+	@@change_to_text:
+	xor dx, dx
+	div bx
+	add dl, '0'
+	mov [byte si], dl ; put the modulu in si
+	dec si
+	loop @@change_to_text
+	
+	mov ah, 42h
+	mov al, 0
+	mov cx, 0
+	mov dx, 0
+	mov bx, [FileHandleScores]
+	int 21h
+	
+	;now we will write those to the file
+	;writing the score
+	mov ah, 40h
+	mov dx, offset ScoreInFile
+	mov bx, [FileHandleScores]
+	mov cx, 4
+	int 21h
+	
+	;writing the name
+	mov ah, 40h
+	mov dx, offset NamePlayer + 2
+	mov bx, [FileHandleScores]
+	xor cx, cx
+	mov cl, [NamePlayer + 1] ; the length of the name
+	int 21h
+	
+	;erase the remaining parts of the name
+	mov ax, 14
+	sub ax, cx
+	mov cx, ax
+	mov ah, 40h
+	mov dx, offset ErasePrevName
+	mov bx, [FileHandleScores]
+	int 21h
+
+
+	@@end:
+	POP_ALL
+	ret
+endp SetHighScore
 
 ;delay by ms - through stack
 
@@ -572,6 +723,24 @@ proc Name_Screen
 	ret
 endp Name_Screen
 
+proc End_Screen
+	PUSH_ALL
+
+	mov dx, offset FileName_End ; draw the picture
+	DRAW_FULL_BMP
+	
+	;we need to print our score
+	
+	
+
+
+
+
+	@@end:
+	POP_ALL
+	ret
+endp End_Screen
+
 ;================================================
 ; Description -  draws a picture of start screen
 ; INPUT: None
@@ -602,8 +771,20 @@ endp DrawBackground
 
 proc Enter_Name
 	PUSH_ALL
+	jmp @@Get_name
+	
+	@@print_Error:
+	mov dx, offset FileName_NameError
+	push 35
+	push 110
+	push 250
+	push 13
+	call DrawPictureBmp
+	
+	
 
 	;hide mouse to now enter name
+	@@Get_name:
 	mov ax, 2
 	int 33h
 	
@@ -618,6 +799,9 @@ proc Enter_Name
 	mov ah, 0ah
 	mov dx, offset NamePlayer
 	int 21h
+	
+	cmp [NamePlayer + 2], 13
+	je @@print_Error
 	
 	;getting back to normal
 	mov ah, 2
@@ -1832,7 +2016,7 @@ proc PickLevel
 	je @@put_level
 	
 	mov bl, 1 ; min level
-	mov bh, 3 ; max numbers of levels
+	mov bh, 4 ; max numbers of levels
 	call RandomByCs
 	;now al has the number of the level
 	mov [CurentLevel], al
@@ -1849,6 +2033,9 @@ proc PickLevel
 	cmp al, 3
 	je @@level_three
 	
+	cmp al, 4
+	je @@level_four
+	
 	@@level_one:
 	call Level_One
 	jmp @@end
@@ -1859,6 +2046,10 @@ proc PickLevel
 	
 	@@level_three:
 	call Level_Three
+	jmp @@end
+	
+	@@level_four:
+	call Level_Four
 	jmp @@end
 	
 	
@@ -1970,7 +2161,7 @@ endp Level_Two
 
 ;
 ;                      •
-;                      █
+;                      
 ;  ▲            █      
 ;  █     ▲▲     █
 proc Level_Three
@@ -1988,8 +2179,6 @@ proc Level_Three
 	mov [Ypos_Triangle + 4], 152
 	mov [Xpos_Tower], 510
 	mov [Height_Tower], 2 ; tower of 2 blocks
-	mov [Xpos_Blocks + 2], 580 ; last floating block
-	mov [Ypos_Blocks + 2], 107
 	mov [Xpos_Points], 586 ; bonus point
 	mov [Ypos_Points], 92
 	
@@ -2013,9 +2202,9 @@ proc Level_Three
 	sub [Xpos_Triangle + 4], ax
 	sub [Xpos_Tower], ax
 	sub [Xpos_Blocks + 2], ax
-	cmp [Xpos_Blocks + 2], 64000
-	ja @@end_level
 	sub [Xpos_Points], ax
+	cmp [Xpos_Points], 64000
+	ja @@end_level
 	
 	call DrawBlock
 	call Draw_Triangle
@@ -2029,6 +2218,63 @@ proc Level_Three
 	@@end:
 	ret
 endp Level_Three
+
+;
+;       █   ▲
+;       █   █
+;       █      █ 
+;  █    █      █  ▲
+proc Level_Four
+	cmp [Objects_Placed], 1
+	je @@move_objects
+	
+	mov [Objects_Placed], 1
+	mov [Xpos_Blocks], 330 ; first block
+	mov [Ypos_Blocks], 143
+	mov [Xpos_Tower], 395 ; first tower
+	mov [Height_Tower], 4
+	mov [Xpos_Blocks + 2], 455 ; second floating block
+	mov [Ypos_Blocks + 2], 107
+	mov [Xpos_Triangle], 455 ; floating triangle
+	mov [Ypos_Triangle], 98
+	mov [Xpos_Tower + 2], 505 ; second tower
+	mov [Height_Tower + 2], 2 ; height of two blocks
+	mov [Xpos_Triangle + 2], 545 ; second triangle
+	mov [Ypos_Triangle + 2], 152
+	
+	sub [delay], 5
+	
+	call Draw_Tower
+	call Draw_Triangle
+	call DrawBlock
+	
+	@@move_objects:
+	call Erase_Block
+	call Erase_Triangle
+	call Erase_Tower
+	
+	mov ax, 5
+	sub [Xpos_Blocks], ax
+	sub [Xpos_Blocks + 2], ax
+	sub [Xpos_Tower], ax
+	sub [Xpos_Tower + 2], ax
+	sub [Xpos_Triangle], ax
+	sub [Xpos_Triangle + 2], ax
+	cmp [Xpos_Triangle + 2], 64000
+	ja @@end_level
+	
+	call Draw_Tower
+	call Draw_Triangle
+	call DrawBlock
+	jmp @@end
+
+	@@end_level:
+	mov [Objects_Placed], 0
+	add [delay], 5
+
+	@@end:
+	ret
+endp Level_Four
 
 proc printAxDec  
 	   
