@@ -6,8 +6,6 @@ BMP_HEIGHT = 200
 
 STACK 100h
 
-PLAYER_NAME equ 14, 16 dup (?)
-
 
 ;macros
 macro PUSH_ALL ; push all registers
@@ -64,6 +62,11 @@ DATASEG
 ; --------------------------
 ; Your variables here
 
+	bool_won db 0
+
+	;start over
+	bool_start_over db 0
+
 	;random
 	RndCurrentPos dw start
 
@@ -73,7 +76,7 @@ DATASEG
 	delay dw 55
 	
 	;name
-	NamePlayer db PLAYER_NAME
+	NamePlayer db 14, 16 dup (?), '$'
 	
 	;Bonus points
 	BonusPointsCounter db ?
@@ -84,6 +87,7 @@ DATASEG
 	
 	;score
 	FinalScore dw ?
+	FinalScoreTXT db "xxxx", '$'
 	
 	; -- Cube variables --
 	
@@ -259,9 +263,10 @@ DATASEG
 	
 	FileName_Scores db 'scores.txt', 0
 	FileHandleScores dw ?
-	ScoreInFile db "xxxx"
+	ScoreInFile db "xxxx", '$'
 	ScoreInNumbers dw ?
 	ErasePrevName db 13 dup ('x')
+	BestScoreHolder db 14 dup ('$')
 ; --------------------------
 
 CODESEG
@@ -274,6 +279,9 @@ start:
 	call SetGraphics
 	
 	call SetMouseLimits
+	
+start_over:
+	mov [bool_start_over], 0
 	
 	call MouseShow
 	
@@ -301,6 +309,18 @@ start:
 	
 	cont:
 	call ChangeScoreHighest
+	call End_Screen
+	
+	
+	;now we close the file
+	
+	mov ah, 3eh
+	mov bx, [FileHandleScores]
+	int 21h
+	
+	cmp [bool_start_over], 1
+	je start_over
+	
 ; --------------------------
 
 exit:
@@ -369,12 +389,6 @@ proc ChangeScoreHighest
 	
 	;now we will put the highest score
 	call SetHighScore
-	
-	;now we close the file
-	
-	mov ah, 3eh
-	mov bx, [FileHandleScores]
-	int 21h
 
 	POP_ALL
 	ret
@@ -390,6 +404,8 @@ proc SetHighScore
 	cmp ax, [ScoreInNumbers] ; the best score
 	
 	jbe @@end ; if our score is equal or below the highest score
+	
+	mov [bool_won], 1
 	
 	mov [ScoreInNumbers], ax
 	
@@ -730,16 +746,279 @@ proc End_Screen
 	DRAW_FULL_BMP
 	
 	;we need to print our score
+	call WriteScore
 	
+	;show mouse
+	mov ax, 1
+	int 33h
 	
-
-
-
-
+	;check mouse
+	
+	@@check_mouse:
+	mov ax, 3 ; get mouse details
+	int 33h
+	
+	cmp bx, 1
+	jne @@check_mouse ; if didnt get any left clicks
+	shr cx, 1
+	
+	;check if NO
+	cmp dx, 135
+	jb @@check_mouse
+	
+	cmp dx, 150
+	ja @@check_mouse
+	
+	cmp cx, 245
+	jb @@yes
+	
+	cmp cx, 275
+	ja @@check_mouse
+	
+	call End_Game
+	jmp @@end
+	
+	@@yes:
+	cmp cx, 39
+	jb @@check_mouse
+	
+	cmp cx, 83
+	ja @@check_mouse
+	
+	call Reset
+	
 	@@end:
 	POP_ALL
 	ret
 endp End_Screen
+
+proc Reset
+
+	mov [NamePlayer], 14
+	mov [NamePlayer + 1], ?
+	mov [NamePlayer + 2], ?
+	mov [NamePlayer + 3], ?
+	mov [NamePlayer + 4], ?
+	mov [NamePlayer + 5], ?
+	mov [NamePlayer + 6], ?
+	mov [NamePlayer + 7], ?
+	mov [NamePlayer + 8], ?
+	mov [NamePlayer + 9], ?
+	mov [NamePlayer + 10], ?
+	mov [NamePlayer + 11], ?
+	mov [NamePlayer + 12], ?
+	mov [NamePlayer + 13], ?
+	mov [NamePlayer + 14], ?
+	mov [NamePlayer + 15], ?
+	mov [NamePlayer + 16], '$'
+
+	mov [bool_won], 0
+	
+	;Bonus points
+	mov [BonusPointsCounter], ?
+	
+	;seconds alive
+	mov [counterSeconds], ?
+	mov [seconds], ?
+	
+	;score
+	mov [FinalScore], ?
+	mov [FinalScoreTXT],  'x'
+	mov [FinalScoreTXT + 1], 'x'
+	mov [FinalScoreTXT + 2], 'x'
+	mov [FinalScoreTXT + 3], 'x'
+	mov [FinalScoreTXT + 4], '$'
+	
+	; -- Cube variables --
+	
+	; -- loop var --
+	mov [IsExit], 0
+	
+	; -- jump vars --
+	mov [can_jump], 1 ; will sign if we are falling from a platform
+	
+	;rotation
+	mov [timeInAir], 0
+	
+	;directions bools 
+	mov [Is_Going_up], ?
+	mov [Is_Going_down], ?
+	mov [Is_Falling], ?
+	
+	;height calculation
+	mov [Max_height], ? ; max height when jumping will be calculated once
+	mov [Middle_Height], ? ; to slow down mid jump
+	mov [bool_calc_max_height], 0 ; if we have calculated max height to not repeat
+	
+	; -- position --
+	
+	;cube
+	mov [Xpos], 50
+	mov [Ypos], 143
+	
+	mov [Objects_Placed], ?
+	mov [CurentLevel], ?
+	
+	mov [bool_start_over], 1
+	
+	mov [Xpos_Blocks], -1
+	mov [Xpos_Blocks + 1], -1
+	mov [Xpos_Blocks + 2], -1
+	mov [Xpos_Blocks + 3], -1
+	mov [Xpos_Blocks + 4], -1
+	mov [Ypos_Blocks], -1
+	mov [Ypos_Blocks + 1], -1
+	mov [Ypos_Blocks + 2], -1
+	mov [Ypos_Blocks + 3], -1
+	mov [Ypos_Blocks + 4], -1
+	
+	
+	;Triangle
+	mov [Xpos_Triangle], -1
+	mov [Xpos_Triangle + 1], -1
+	mov [Xpos_Triangle + 2], -1
+	mov [Xpos_Triangle + 3], -1
+	mov [Xpos_Triangle + 4], -1
+	mov [Ypos_Triangle], -1
+	mov [Ypos_Triangle + 1], -1
+	mov [Ypos_Triangle + 2], -1
+	mov [Ypos_Triangle + 3], -1
+	mov [Ypos_Triangle + 4], -1
+	
+	;Tower
+	mov [Xpos_Tower], -1
+	mov [Xpos_Tower + 1], -1
+	mov [Xpos_Tower + 2], -1
+	mov [Xpos_Tower + 3], -1
+	mov [Xpos_Tower + 4], -1
+	
+	mov [Ypos_Tower], -1
+	mov [Ypos_Tower + 1], -1
+	mov [Ypos_Tower + 2], -1
+	mov [Ypos_Tower + 3], -1
+	mov [Ypos_Tower + 4], -1
+	
+	mov [Height_Tower], -1
+	mov [Height_Tower + 1], -1
+	mov [Height_Tower + 2], -1
+	mov [Height_Tower + 3], -1
+	mov [Height_Tower + 4], -1
+	
+	;Bonus Points
+	mov [Xpos_Points], -1
+	mov [Ypos_Points], -1
+	
+	mov [delay], 55
+	;hide mouse
+	mov ax, 2
+	int 33h
+	ret
+endp Reset
+
+;returns to text mode
+proc End_Game
+	push ax
+	mov ax,2	;returns the screen to text mode.
+	int 10h
+	
+	mov ax, 4C00h ; returns control to dos
+  	int 21h
+	pop ax
+	ret
+endp End_Game
+
+;writes all scores in end screen
+proc WriteScore
+;our score
+	;we will change the place of the writing
+	mov ah, 2
+	xor bh, bh
+	mov dl, 25
+	mov dh, 7
+	int 10h
+	
+	call ChangeScoreToTXT
+	
+	mov dx, offset FinalScoreTXT ; now we print
+	mov ah, 9
+	int 21h
+	
+;Best Score
+	mov ah, 2
+	xor bh, bh
+	mov dl, 25
+	mov dh, 8
+	int 10h
+	
+	mov dx, offset ScoreInFile ; highest score
+	mov ah, 9
+	int 21h
+	
+;now we print the holder
+	mov ah, 2
+	xor bh, bh
+	mov dl, 17
+	mov dh, 10
+	int 10h
+	
+	cmp [bool_won], 1
+	je @@write_player_name
+	
+	mov dx, offset BestScoreHolder
+	
+@@read:
+	mov ah, 3fh
+	mov bx, [FileHandleScores]
+	mov cx, 1
+	int 21h
+	mov si, dx
+	inc dx
+	cmp [byte si], 'x'
+	jne @@read
+	
+	mov [byte si], '$'
+	
+	mov ah, 9
+	mov dx, offset BestScoreHolder
+	int 21h
+	jmp @@end
+	
+@@write_player_name:
+	
+	xor bx, bx
+	mov bl, [NamePlayer + 1]
+	add bl, 2
+	mov [NamePlayer + bx], '$'
+	
+	mov ah, 9
+	mov dx, offset NamePlayer + 2
+	int 21h
+	
+@@end:
+	ret
+endp WriteScore
+
+;takes our final score and turn it into text to print in final screen
+;puts it in "FinalScoreTXT"
+proc ChangeScoreToTXT
+	PUSH_ALL
+	
+	mov ax, [FinalScore]
+
+	mov si, offset FinalScoreTXT + 3 ;go to the end of var
+	mov cx, 4
+	mov bx, 10 ; to div every time by ten
+	@@change_to_text:
+	xor dx, dx
+	div bx
+	add dl, '0'
+	mov [byte si], dl ; put the modulu in si
+	dec si
+	loop @@change_to_text
+
+	POP_ALL
+	ret
+endp ChangeScoreToTXT
 
 ;================================================
 ; Description -  draws a picture of start screen
@@ -2666,10 +2945,7 @@ proc putMatrixInData
 	
 	@@copy_data:	; Copy line to the screen
 	mov al, [byte es:di]
-	cmp al, -2
-	je @@end ; if it is equal to minus one we need to skip it
 	mov [byte ds:si], al
-	@@end:
 	inc si
 	inc di
 	loop @@copy_data
