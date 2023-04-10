@@ -1,5 +1,6 @@
 IDEAL
 MODEL small
+p386
 
 BMP_WIDTH = 320
 BMP_HEIGHT = 200
@@ -276,49 +277,26 @@ start:
 ; --------------------------
 ; Your code here
 
-	call SetGraphics
-	
-	call SetMouseLimits
+call SettingsGame
 	
 start_over:
-	mov [bool_start_over], 0
+
+	call StartingGame
 	
-	call MouseShow
-	
-	call DrawBackground
-	call DrawCube
-	
-	xor ax, ax
-	int 16h
-	
-	draw:
+main_loop:
 	call Key_Check
 	
 	cmp [IsExit], 1
-	je cont
+	je end_game
 	
-	call PickLevel
+	call GameLoop
 	
-	call Cube_Move
+	jmp main_loop
 	
-	call CountSeconds
+end_game:
+	call EndGame
 	
-	push [delay] ; ms
-	call LoopDelay
-	jmp draw
-	
-	cont:
-	call ChangeScoreHighest
-	call End_Screen
-	
-	
-	;now we close the file
-	
-	mov ah, 3eh
-	mov bx, [FileHandleScores]
-	int 21h
-	
-	cmp [bool_start_over], 1
+	cmp [bool_start_over], 1 ; if the player selected yes
 	je start_over
 	
 ; --------------------------
@@ -326,7 +304,55 @@ start_over:
 exit:
 	mov ax, 4c00h
 	int 21h
+
+
+;set the settings of game
+proc SettingsGame
+	call SetGraphics ; graphics
 	
+	call SetMouseLimits ; set mouse limits of screen
+	ret
+endp SettingsGame
+
+proc StartingGame
+	mov [bool_start_over], 0 ; resetting this bool
+	
+	call MouseShow ; for loading screens
+	
+	;when the player got here the game has started
+	
+	call DrawBackground ; drawing the background
+	call DrawCube ; drawing the cube
+	
+	push 500 ; delay before starting the game
+	call LoopDelay
+	ret
+endp StartingGame
+
+proc GameLoop
+	call PickLevel ; picks a random level
+	
+	call Cube_Move ; moving the cube according to the bools
+	
+	call CountSeconds ; counting seconds 
+	
+	push [delay] ; delay
+	call LoopDelay
+	ret
+endp GameLoop
+
+proc EndGame
+	call ChangeScoreHighest ; handles the score using the file
+	call End_Screen ; end screen printing and writing and mouse
+	
+	;now we close the file
+	
+	mov ah, 3eh
+	mov bx, [FileHandleScores]
+	int 21h
+	
+	ret
+endp EndGame
 	
 ;calculating the score - each bonus point is 2 more seconds to total
 ;total seconds + number of bonus point * 2 = score
@@ -752,6 +778,9 @@ proc End_Screen
 	mov ax, 1
 	int 33h
 	
+	mov ax, 1
+	int 33h
+	
 	;check mouse
 	
 	@@check_mouse:
@@ -775,7 +804,7 @@ proc End_Screen
 	cmp cx, 275
 	ja @@check_mouse
 	
-	call End_Game
+	call Terminate
 	jmp @@end
 	
 	@@yes:
@@ -916,7 +945,7 @@ proc Reset
 endp Reset
 
 ;returns to text mode
-proc End_Game
+proc Terminate
 	push ax
 	mov ax,2	;returns the screen to text mode.
 	int 10h
@@ -925,7 +954,7 @@ proc End_Game
   	int 21h
 	pop ax
 	ret
-endp End_Game
+endp Terminate
 
 ;writes all scores in end screen
 proc WriteScore
@@ -961,6 +990,10 @@ proc WriteScore
 	mov dh, 10
 	int 10h
 	
+	mov dl, '"'
+	mov ah, 2
+	int 21h
+	
 	cmp [bool_won], 1
 	je @@write_player_name
 	
@@ -995,6 +1028,9 @@ proc WriteScore
 	int 21h
 	
 @@end:
+	mov dl, '"'
+	mov ah, 2
+	int 21h
 	ret
 endp WriteScore
 
@@ -1818,7 +1854,7 @@ endp Check_Hit
 
 ;check if we are about to hit a point
 proc Check_Point
-	PUSH_ALL
+	pusha
 	
 	;we will check x and y
 	
@@ -1844,17 +1880,32 @@ proc Check_Point
 	cmp bp, 1
 	je @@catch_point
 
-	add dx, 12
+	add dx, 6
 	call CheckIsInPoint
 	cmp bp, 1
 	je @@catch_point
 	
-	sub cx, 9
+	add dx, 8
 	call CheckIsInPoint
 	cmp bp, 1
 	je @@catch_point
 	
-	sub cx, 9
+	sub cx, 6
+	call CheckIsInPoint
+	cmp bp, 1
+	je @@catch_point
+	
+	sub cx, 6
+	call CheckIsInPoint
+	cmp bp, 1
+	je @@catch_point
+	
+	sub cx, 6
+	call CheckIsInPoint
+	cmp bp, 1
+	je @@catch_point
+	
+	sub cx, 3
 	call CheckIsInPoint
 	cmp bp, 1
 	je @@catch_point
@@ -1878,7 +1929,7 @@ proc Check_Point
 	mov [Xpos_Points], -1
 
 	@@end:
-	POP_ALL
+	popa
 	ret
 endp Check_Point
 
@@ -1918,6 +1969,8 @@ proc Check_Blocks
 	mov dx, [Ypos]
 	sub dx, 5
 	sub cx, 4
+	cmp [can_jump], 1 ; we wont check up if we dont go up
+	je @@cont
 	int 10H ; AL = COLOR
 	cmp al, 0ffh ; check white
 	je @@end_game
@@ -1925,7 +1978,8 @@ proc Check_Blocks
 	cmp al, 0
 	je @@end_game
 	
-	add dx, 5
+@@cont:
+	add dx, 6
 	add cx, 20
 	int 10h
 	cmp al, 0ffh ; check white
@@ -1956,6 +2010,8 @@ proc Check_Blocks
 	je @@end_game
 	
 	;now we go up
+	cmp [can_jump], 1
+	je @@end
 	mov cx,[Xpos]
 	mov dx, [Ypos]
 	add cx, 18	
@@ -2031,7 +2087,8 @@ proc Check_Triangle
 	cmp dx, bx
 	jb @@check2 ; if below it means we are above the triangle
 	
-	;we can't really be under a triangle so we dont need to check under
+	cmp dx, bp
+	ja @@check2
 	
 	;if it got here it means we are on the triangle
 	jmp @@end_game
@@ -2039,6 +2096,7 @@ proc Check_Triangle
 	;right side
 	@@check2:
 	add cx, 17
+	;we need to check couple of x before the triangle and infront
 	add di, 4
 	sub ax, 3
 	
@@ -2052,13 +2110,16 @@ proc Check_Triangle
 	cmp dx, bx
 	jb @@end_loop ; if the cube is above the triangle
 	
+	cmp dx, bp
+	ja @@end_loop
+	
 	;if it got here it means we are in the triangle
 	jmp @@end_game
 	
 	@@end_loop:
 	add si, 2
-	cmp si, 10 ; five objects
-	jbe @@checkEachTriangle
+	cmp si, 8 ; five objects
+	jb @@checkEachTriangle
 	
 	
 
@@ -2288,14 +2349,14 @@ endp Cube_Move
 
 ;picks a random level each time a level has ended
 proc PickLevel
-	PUSH_ALL
+	pusha
 	
 	;if even the last level has ended
 	cmp [Objects_Placed], 1 ; if a level is in screen then dont create another level
 	je @@put_level
 	
 	mov bl, 1 ; min level
-	mov bh, 4 ; max numbers of levels
+	mov bh, 6 ; max numbers of levels
 	call RandomByCs
 	;now al has the number of the level
 	mov [CurentLevel], al
@@ -2315,6 +2376,12 @@ proc PickLevel
 	cmp al, 4
 	je @@level_four
 	
+	cmp al, 5
+	je @@level_five
+	
+	cmp al, 6
+	je @@level_six
+	
 	@@level_one:
 	call Level_One
 	jmp @@end
@@ -2331,9 +2398,17 @@ proc PickLevel
 	call Level_Four
 	jmp @@end
 	
+	@@level_five:
+	call Level_Five
+	jmp @@end
+	
+	@@level_six:
+	call Level_Six
+	jmp @@end
+	
 	
 	@@end:
-	POP_ALL
+	popa
 	ret
 endp PickLevel
 ;
@@ -2355,14 +2430,10 @@ proc Level_One
 	
 	mov [Xpos_Tower], 520 ; the tower
 	
-	call Draw_Tower ; we need to draw the objects first to erase them after
-	call DrawBlock
-	call Draw_Triangle
+	call Draw_All ; we need to draw the objects first to erase them after
 	
 	@@move_objects:
-	call Erase_Block
-	call Erase_Triangle
-	call Erase_Tower
+	call Erase_All
 	
 	sub [Xpos_Triangle], 5
 	cmp [Xpos_Triangle], 64000
@@ -2370,9 +2441,7 @@ proc Level_One
 	sub [Xpos_Tower],5
 	sub [Xpos_Blocks], 5
 	
-	call Draw_Tower
-	call DrawBlock
-	call Draw_Triangle
+	call Draw_All
 	jmp @@end
 	
 	@@end_level:
@@ -2402,16 +2471,10 @@ proc Level_Two
 	mov [Xpos_Triangle + 2], 710 ; last triangle
 	mov [Ypos_Triangle + 2], 152
 	
-	call Draw_Tower
-	call Draw_Triangle
-	call DrawBlock
-	call DrawPoint
+	call Draw_All
 	
 	@@move_objects:
-	call Erase_Tower
-	call Erase_Triangle
-	call Erase_Block
-	call Erase_point
+	call Erase_All
 	
 	mov ax, 5
 
@@ -2424,10 +2487,7 @@ proc Level_Two
 	sub [Xpos_Blocks], ax
 	sub [Xpos_Points], ax
 	
-	call Draw_Tower
-	call Draw_Triangle
-	call DrawBlock
-	call DrawPoint
+	call Draw_All
 	jmp @@end
 	
 	@@end_level:
@@ -2461,17 +2521,11 @@ proc Level_Three
 	mov [Xpos_Points], 586 ; bonus point
 	mov [Ypos_Points], 92
 	
-	call DrawBlock
-	call Draw_Triangle
-	call Draw_Tower
-	call DrawPoint
+	call Draw_All
 	
 	@@move_objects:
 	
-	call Erase_Block
-	call Erase_Triangle
-	call Erase_Tower
-	call Erase_point
+	call Erase_All
 	
 	mov ax, 5
 	
@@ -2485,10 +2539,7 @@ proc Level_Three
 	cmp [Xpos_Points], 64000
 	ja @@end_level
 	
-	call DrawBlock
-	call Draw_Triangle
-	call Draw_Tower
-	call DrawPoint
+	call Draw_All
 	jmp @@end
 	
 	@@end_level:
@@ -2521,16 +2572,12 @@ proc Level_Four
 	mov [Xpos_Triangle + 2], 545 ; second triangle
 	mov [Ypos_Triangle + 2], 152
 	
-	sub [delay], 5
+	sub [delay], 7
 	
-	call Draw_Tower
-	call Draw_Triangle
-	call DrawBlock
+	call Draw_All
 	
 	@@move_objects:
-	call Erase_Block
-	call Erase_Triangle
-	call Erase_Tower
+	call Erase_All
 	
 	mov ax, 5
 	sub [Xpos_Blocks], ax
@@ -2542,18 +2589,129 @@ proc Level_Four
 	cmp [Xpos_Triangle + 2], 64000
 	ja @@end_level
 	
-	call Draw_Tower
-	call Draw_Triangle
-	call DrawBlock
+	call Draw_All
 	jmp @@end
 
 	@@end_level:
 	mov [Objects_Placed], 0
-	add [delay], 5
+	add [delay], 7
 
 	@@end:
 	ret
 endp Level_Four
+
+;
+;
+;        ▲     █
+;        █     █
+;   ▲█         █      ▲
+proc Level_Five
+	cmp [Objects_Placed], 1
+	je @@move_objects
+	
+	mov [Objects_Placed], 1
+	mov [Xpos_Triangle], 330 ; first triangle
+	mov [Ypos_Triangle], 152
+	mov [Xpos_Blocks], 350 ; first block
+	mov [Ypos_Blocks], 143
+	mov [Xpos_Blocks + 2], 420 ; second floating block
+	mov [Ypos_Blocks + 2], 125
+	mov [Xpos_Triangle + 2], 420;second floating triangle
+	mov [Ypos_Triangle + 2], 116
+	mov [Xpos_Tower], 515 ; tower
+	mov [Height_Tower], 3
+	mov [Xpos_Triangle + 4], 590
+	mov [Ypos_Triangle + 4], 152
+	
+	call Draw_All
+	
+@@move_objects:
+	call Erase_All
+	
+	mov ax, 5
+	sub [Xpos_Triangle], ax
+	sub [Xpos_Blocks], ax
+	sub [Xpos_Blocks + 2], ax
+	sub [Xpos_Triangle + 2], ax
+	sub [Xpos_Tower], ax
+	sub [Xpos_Triangle + 4], ax
+	cmp [Xpos_Triangle + 4], 64000
+	ja @@end_level
+	
+	call Draw_All
+	jmp @@end
+	
+@@end_level:
+	mov [Objects_Placed], 0
+@@end:
+	ret
+endp Level_Five
+
+;
+;
+;      •
+;   █         █
+;   █   ██▲   █
+proc Level_Six
+	cmp [Objects_Placed], 1
+	je @@move_objects
+	
+	mov [Objects_Placed], 1
+	mov [Xpos_Tower], 330 ; first tower
+	mov [Height_Tower], 3
+	mov [Xpos_Points], 405 ; bonus point
+	mov [Ypos_Points], 85
+	mov [Xpos_Blocks], 455 ; first block
+	mov [Ypos_Blocks], 143
+	mov [Xpos_Blocks + 2], 474 ; second block
+	mov [Ypos_Blocks + 2], 143
+	mov [Xpos_Triangle], 435 ; first triangle
+	mov [Ypos_Triangle], 152
+	mov [Xpos_Tower + 2], 580 ; second tower
+	mov [Height_Tower + 2], 2
+	
+	sub [delay], 4
+	
+	call Draw_All
+	
+@@move_objects:
+	call Erase_All
+	
+	mov ax, 5
+	sub [Xpos_Tower], ax
+	sub [Xpos_Points], ax
+	sub [Xpos_Blocks], ax
+	sub [Xpos_Blocks + 2], ax
+	sub [Xpos_Triangle], ax
+	sub [Xpos_Tower + 2], ax
+	cmp [Xpos_Tower + 2], 6400
+	ja @@end_level
+	
+	
+	call Draw_All
+	jmp @@end
+@@end_level:
+	mov [Objects_Placed], 0
+	add [delay], 4
+@@end:
+	ret
+endp Level_Six
+
+proc Draw_All
+	call Draw_Tower
+	call Draw_Triangle
+	call DrawBlock
+	call DrawPoint
+	ret
+endp Draw_All
+
+proc Erase_All
+	call Erase_Tower
+	call Erase_point
+	call Erase_Triangle
+	call Erase_Block
+	ret
+endp Erase_All
 
 proc printAxDec  
 	   
@@ -2874,7 +3032,7 @@ endp SetGraphics
 ; in di start byte in screen (0 64000 -1)
 
 proc putMatrixInScreen
-	PUSH_ALL
+	pusha
 	
 	mov ax, 0A000h
 	mov es, ax
@@ -2914,7 +3072,7 @@ proc putMatrixInScreen
 	
 endProc:	
 	
-	POP_ALL
+	popa
     ret
 endp putMatrixInScreen
 
@@ -2923,7 +3081,7 @@ endp putMatrixInScreen
 ; in matrix - the offset of the var we want to copy to
 ; in di start byte in screen (0 64000 -1)
 proc putMatrixInData
-	PUSH_ALL
+	pusha
 	
 	mov ax, 0A000h
 	mov es, ax
@@ -2960,7 +3118,7 @@ proc putMatrixInData
 	
 
 	
-	POP_ALL
+	popa
     ret
 endp putMatrixInData 
 
