@@ -91,6 +91,7 @@ DATASEG
 	FinalScoreTXT db "xxxx", '$'
 	
 	; -- Cube variables --
+	CurrentSize dw 18
 	
 	; -- loop var --
 	IsExit db 0
@@ -145,7 +146,7 @@ DATASEG
 	; -- drawing using matrix --
 	
 	;erasing cube
-	matrix_erase_cube db 324 dup (?) ; one main cube
+	matrix_erase_cube db 25*25 dup (?) ; max sizes of main cube
 			
 	; - triangle block -
 	matrix_triangle db  -2,  -2,   -2,  -2,  -2,  -2,  -2,  -2,0ffh,0ffh,-2,  -2,   -2,  -2,  -2,  -2,    -2,-2
@@ -159,7 +160,7 @@ DATASEG
 					db 0ffh,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,0ffh
 	
 	;erasing the triangle
-	matrix_erase_triangle db 162 dup (?), 162 dup (?), 162 dup (?), 162 dup (?), 162 dup (?) ; five triagnles
+	matrix_erase_triangle db 9*18 dup (?), 9*18 dup (?), 9*18 dup (?), 9*18 dup (?), 9*18 dup (?) ; five triagnles
 	
 	; -- blocks --
 	matrix_blocks  db 0ffh,0ffh,0ffh,0ffh,0ffh,0ffh,0ffh,0ffh,0ffh,0ffh,0ffh,0ffh,0ffh,0ffh,0ffh,0ffh,0ffh,0ffh
@@ -182,7 +183,7 @@ DATASEG
 					db 0ffh,0ffh,0ffh,0ffh,0ffh,0ffh,0ffh,0ffh,0ffh,0ffh,0ffh,0ffh,0ffh,0ffh,0ffh,0ffh,0ffh,0ffh
 
 	;erasing block
-	matrix_erase_blocks db 324 dup (?), 324 dup (?), 324 dup (?), 324 dup (?), 324 dup (?) ; five blocks
+	matrix_erase_blocks db 18*18 dup (?), 18*18 dup (?), 18*18 dup (?), 18*18 dup (?), 18*18 dup (?) ; five blocks
 	
 	;bonus points
 	matrix_bonus    db 0fh,0fh,0fh,0fh,0fh,0fh
@@ -198,10 +199,10 @@ DATASEG
 					db 0fh,0fh,0fh,0fh,0fh,0fh
 	
 	;erasing point
-	matrix_erase_point db 66 dup (?) ; one bonus point
+	matrix_erase_point db 11*6 dup (?) ; one bonus point
 	
 	;erase tower
-	matrix_erase_tower db 1620 dup (?), 1620 dup (?), 1620 dup (?), 1620 dup (?), 1620 dup (?) ; five towers
+	matrix_erase_tower db 18*18*5 dup (?), 18*18*5 dup (?), 18*18*5 dup (?), 18*18*5 dup (?), 18*18*5 dup (?) ; five towers
 
 	
 	
@@ -1142,9 +1143,14 @@ endp Enter_Name
 proc DrawCube
 	PUSH_ALL
 	
+	;pick size
+	;picks a bmp by the seconds of the cube in the air
+	call Pick_bmp_by_height
+	push dx ; save dx after we save the background
+	
 	;di = Ypos * 320 + Xpos (place on screen)
 	
-	mov ax, [Ypos]
+	mov ax, [Ypos] ; we use matrix to erase
 	mov bx, 320
 	mul bx
 	
@@ -1152,29 +1158,29 @@ proc DrawCube
 	add di, [Xpos]
 	
 	;size
-	mov cx, 18 ; rows
-	mov dx, 18 ; cols
+	mov cx, [CurrentSize] ; rows
+	mov dx, [CurrentSize] ; cols
 	
 	call Copy_Background_Cube ; we will copy the background firstly
 	
-	;put a bmp picture of cube
-	call Pick_bmp_by_height
+	pop dx
+	;for printing bmp we need - Xpos, Ypos, Height, Width - Through stack
+	push [Xpos]
+	dec [Ypos]
+	push [Ypos]
+	inc [Ypos]
+	push [CurrentSize]
+	push [CurrentSize]
+	call DrawPictureBmp
+	;print
 	
 	POP_ALL
 	ret
 endp DrawCube
 
-;for rotation - we check the height and then print the picture
+;for rotation - we check the height and then pick the right frame for it
+;returns in dx and offset of the file we want to print
 proc Pick_bmp_by_height
-	PUSH_ALL
-	
-	dec [Ypos]
-	push [Xpos]
-	push [Ypos]
-	inc [Ypos]
-	mov ax, 18
-	push ax
-	push ax
 	
 	cmp [timeInAir], 0 ; if timer is zero we need to print the 90 degrees even if not on ground
 	je @@90_deg
@@ -1184,6 +1190,7 @@ proc Pick_bmp_by_height
 	
 	@@90_deg:
 	mov [timeInAir], 0
+	mov [CurrentSize], 18
 	mov dx, offset FileName_cube
 	jmp @@print
 
@@ -1241,70 +1248,87 @@ proc Pick_bmp_by_height
 	jmp @@85_deg ; if it got here it got to be 17
 	
 	@@5_deg:
+	mov [CurrentSize], 20 ; the sizes of the image
 	mov dx, offset FileName_cube5
 	jmp @@print
 	
 	@@10_deg:
+	mov [CurrentSize], 21
 	mov dx, offset FileName_cube10
 	jmp @@print
 	
 	@@15_deg:
+	mov [CurrentSize], 22
 	mov dx, offset FileName_cube15
 	jmp @@print
 	
 	@@20_deg:
+	mov [CurrentSize], 23
 	mov dx, offset FileName_cube20
 	jmp @@print
 	
 	@@25_deg:
+	mov [CurrentSize], 24
 	mov dx, offset FileName_cube25
 	jmp @@print
 	
 	@@30_deg:
+	mov [CurrentSize], 24
 	mov dx, offset FileName_cube30
 	jmp @@print
 	
 	@@35_deg:
+	mov [CurrentSize], 25
 	mov dx, offset FileName_cube35
 	jmp @@print
 	
 	@@40_deg:
+	mov [CurrentSize], 25
 	mov dx, offset FileName_cube40
 	jmp @@print
 	
 	@@45_deg:
+	mov [CurrentSize], 25
 	mov dx, offset FileName_cube45
 	jmp @@print
 	
 	@@50_deg:
+	mov [CurrentSize], 25
 	mov dx, offset FileName_cube50
 	jmp @@print	
 	
 	@@55_deg:
+	mov [CurrentSize], 25
 	mov dx, offset FileName_cube55
 	jmp @@print	
 	
 	@@60_deg:
+	mov [CurrentSize], 24
 	mov dx, offset FileName_cube60
 	jmp @@print	
 	
 	@@65_deg:
+	mov [CurrentSize], 24
 	mov dx, offset FileName_cube65
 	jmp @@print
 	
 	@@70_deg:
+	mov [CurrentSize], 23
 	mov dx, offset FileName_cube70
 	jmp @@print
 	
 	@@75_deg:
+	mov [CurrentSize], 22
 	mov dx, offset FileName_cube75
 	jmp @@print	
 	
 	@@80_deg:
+	mov [CurrentSize], 21
 	mov dx, offset FileName_cube80
 	jmp @@print
 	
 	@@85_deg:
+	mov [CurrentSize], 19
 	mov dx, offset FileName_cube85
 
 
@@ -1316,9 +1340,6 @@ proc Pick_bmp_by_height
 	mov [timeInAir], 0
 	
 	@@end:
-	call DrawPictureBmp
-
-	POP_ALL
 	ret
 endp Pick_bmp_by_height
 
@@ -1332,8 +1353,8 @@ proc Erase_Cube
 	mov di, ax
 	add di, [Xpos]
 	
-	mov cx, 18
-	mov dx, 18
+	mov cx, [CurrentSize]
+	mov dx, [CurrentSize]
 	
 	mov bx, offset matrix_erase_cube
 	mov [matrix], bx
@@ -1347,6 +1368,8 @@ proc Copy_Background_Cube
 	PUSH_ALL
 	
 	;the other parameters are calculated before
+	mov cx, [CurrentSize]
+	mov dx, [CurrentSize]
 	
 	mov bx, offset matrix_erase_cube ; the data will be stored here
 	mov [matrix], bx
@@ -1793,25 +1816,39 @@ proc Key_Check
 endp Key_Check
 
 ;al will be one if there is a floor under us
-proc Check_white_Under
-	;left buttom check
-	mov ah,0Dh
-	mov cx,[Xpos]
+proc Check_floor_Under
+
+	cmp [Ypos], 143
+	je @@floor
+
+	mov ah, 0dh
+	mov cx, [Xpos]
 	mov dx, [Ypos]
-	add dx, 18	
-	int 10H ; AL = COLOR
-	cmp al, 0ffh ; check white
+	add dx, [CurrentSize] ; down left
+	int 10h
+	cmp al, 0ffh ; check if white
 	je @@floor
 	
-	;right buttom check
-	mov ah,0Dh
-	mov cx,[Xpos]
-	mov dx, [Ypos]
-	add dx, 18
-	add cx, 17
-	int 10H ; AL = COLOR
-	cmp al, 0ffh ; check white
+	cmp al, 0
 	je @@floor
+	
+	add cx, [CurrentSize]
+	add cx, 2
+	int 10h
+	cmp al, 0ffh ; check if white
+	je @@floor
+	
+	cmp al, 0
+	je @@floor
+	
+	sub cx, 12
+	int 10h
+	cmp al, 0ffh ; check if white
+	je @@floor
+	
+	cmp al, 0
+	je @@floor
+	
 	
 	;did not see floor
 	
@@ -1823,7 +1860,7 @@ proc Check_white_Under
 
 	@@end:
 	ret
-endp Check_white_Under
+endp Check_floor_Under
 
 ;check if our cube has hit any moving objects
 proc Check_Hit
@@ -1861,12 +1898,15 @@ proc Check_Point
 	mov ax, [Xpos_Points] ; all sides of the cube 
 	mov bx, [Ypos_Points]
 	mov si, ax
-	add si, 6 ;end of point X
+	add si, 8 ;end of point X
+	sub ax, 4
 	mov di, bx
-	add di, 11 ; end of point Y
+	add di, 13 ; end of point Y
+	sub bx, 4
 	
 	mov cx, [Xpos]
-	add cx, 25 ; a little bit forward of cube
+	add cx, [CurrentSize]
+	add cx, 7 ; a little bit forward of cube
 	mov dx, [Ypos]
 	
 	;right up point of cube
@@ -1886,6 +1926,16 @@ proc Check_Point
 	je @@catch_point
 	
 	add dx, 8
+	call CheckIsInPoint
+	cmp bp, 1
+	je @@catch_point
+	
+	add dx, 4
+	call CheckIsInPoint
+	cmp bp, 1
+	je @@catch_point
+	
+	sub cx, 6 ; now we go backwards but still under the cube
 	call CheckIsInPoint
 	cmp bp, 1
 	je @@catch_point
@@ -1910,12 +1960,18 @@ proc Check_Point
 	cmp bp, 1
 	je @@catch_point
 	
-	sub dx, 25
+	sub dx, [CurrentSize]
+	sub dx, 7
 	call CheckIsInPoint
 	cmp bp, 1
 	je @@catch_point
 	
-	add cx, 9
+	add cx, 6
+	call CheckIsInPoint
+	cmp bp, 1
+	je @@catch_point
+	
+	add cx, 6
 	call CheckIsInPoint
 	cmp bp, 1
 	je @@catch_point
@@ -1933,7 +1989,8 @@ proc Check_Point
 	ret
 endp Check_Point
 
-;we get the cube X and Y from the 
+;we get the cube X and Y from the registers cx and dx
+;ax -left side of objects, si - right side of the objects, bx - upper side, di - down side
 ;retun bp 1 if we hit bonus point
 proc CheckIsInPoint
 	
@@ -1963,6 +2020,7 @@ endp CheckIsInPoint
 
 ;if we hit blocks al will be one
 proc Check_Blocks
+	;we will use the 25 numbers because the maximun size of the cube is 25*25 while rotation
 	;we will check three pixels to the right up and down
 	mov ah,0Dh
 	mov cx,[Xpos]
@@ -1979,22 +2037,25 @@ proc Check_Blocks
 	je @@end_game
 	
 @@cont:
-	add dx, 6
-	add cx, 20
+	add dx, 5 ; right wall up
+	add cx, [CurrentSize]
+	add cx, 3
 	int 10h
 	cmp al, 0ffh ; check white
 	je @@end_game
 
-	inc cx
+	add dx, [CurrentSize]
+	dec dx
 	int 10h
 	cmp al, 0ffh ; check white
 	je @@end_game
 	
 	;now we go down
-	mov cx,[Xpos]
+	mov cx,[Xpos] ; right wall down
 	mov dx, [Ypos]
-	add cx, 18	
-	add dx, 17
+	add cx, [CurrentSize]	;here we will check normal sides
+	add dx, [CurrentSize]
+	dec dx ; not on floor
 	int 10H ; AL = COLOR
 	cmp al, 0ffh ; check white
 	je @@end_game
@@ -2009,12 +2070,15 @@ proc Check_Blocks
 	cmp al, 0ffh ; check white
 	je @@end_game
 	
+	cmp al, 0
+	je @@end_game
+	
 	;now we go up
 	cmp [can_jump], 1
 	je @@end
 	mov cx,[Xpos]
 	mov dx, [Ypos]
-	add cx, 18	
+	add cx, [CurrentSize]	;right wall up - above cube
 	dec dx
 	int 10H ; AL = COLOR
 	cmp al, 0ffh ; check white
@@ -2064,7 +2128,7 @@ proc Check_Triangle
 	
 	;side of triangle
 	mov di, ax 
-	add di, 17 ;end of triangle in x
+	add di, 19 ;end of triangle in x
 	
 	mov bp, bx
 	add bp, 8 ; end of triangle in y
@@ -2072,7 +2136,7 @@ proc Check_Triangle
 	;left down
 	mov cx, [Xpos]
 	mov dx, [Ypos]
-	add dx, 18
+	add dx, [CurrentSize]
 	
 	sub di, 4
 	cmp cx, ax
@@ -2095,10 +2159,30 @@ proc Check_Triangle
 	
 	;right side
 	@@check2:
-	add cx, 17
+	add cx, [CurrentSize]
+	sub cx, 4
 	;we need to check couple of x before the triangle and infront
 	add di, 4
 	sub ax, 3
+	
+	;now we will just copy the above
+	cmp cx, ax
+	jb @@check3 ;if the cube is left to the triangle
+	
+	cmp cx, di
+	ja @@check3 ; if the cube is right to the triangle
+	
+	cmp dx, bx
+	jb @@check3 ; if the cube is above the triangle
+	
+	cmp dx, bp
+	ja @@check3
+	
+	;if it got here it means we are in the triangle
+	jmp @@end_game
+	
+	@@check3:
+	sub cx, 10
 	
 	;now we will just copy the above
 	cmp cx, ax
@@ -2116,6 +2200,7 @@ proc Check_Triangle
 	;if it got here it means we are in the triangle
 	jmp @@end_game
 	
+	
 	@@end_loop:
 	add si, 2
 	cmp si, 8 ; five objects
@@ -2129,32 +2214,28 @@ proc Check_Triangle
 	
 	@@end_game:
 	mov al, 1
+	mov [IsExit], 1
 	
 	@@end:
 	ret
 endp Check_Triangle
 
-;in case the jump has ended and we are not on the flooro
+;in case the jump has ended and we are not on the floor
 ;this will check if we have floor under us while falling from a block - when not jumpimg
 proc Check_Fall
 	PUSH_ALL
-	
-	call Check_white_Under
-	cmp al, 1 ; if we have floor under
-	je @@check_hit_floor ; then check if it is the floor
-	
 
 	;we need to go down - no floor
 	mov [Is_Falling], 1
 	mov [can_jump], 0
 	add [Ypos], 6
+	cmp [Ypos], 137
+	ja @@hit_floor
 	jmp @@end
 	
-	@@check_hit_floor:
-	cmp [Ypos], 143 ; if it is the floor end the fall
-	jne @@end
+	@@hit_floor:
 	
-	;did hit floor
+	mov [Ypos], 143
 	mov [can_jump], 1 ; we can jump again - in case we are falling we will cancel the jump movement so when when stop falling we cant jump
 	mov [Is_Falling], 0
 	mov [Is_Going_down], 0
@@ -2230,28 +2311,15 @@ endp Cube_Ascend
 ; Register Usage: None
 ;================================================
 proc Descending
-	PUSH_ALL
-
-	call Check_white_Under
-	cmp al, 1
-	je @@end_jump
+	pusha
 	
-	;to not go through the floor we will reduce the falling speed to one when close to the floors
-	cmp [Ypos], 153 ; if below continue to reducde by nine
-	jb @@down_nine
-	
-	inc [Ypos]
-	
-	call Check_white_Under ; checking twice to not loop twice
-	cmp al, 1
-	je @@end_jump
-	
-	jmp @@end
-	
-	@@down_nine:
 	add [Ypos], 9
 	
-	call Check_white_Under
+	call Check_Triangle
+	cmp al, 1
+	je @@end
+	
+	call Check_floor_Under
 	cmp al, 1
 	je @@end_jump
 	
@@ -2262,13 +2330,13 @@ proc Descending
 	mov [Is_Going_down], 0 ; finished going down
 	
 	@@end:
-	POP_ALL
+	popa
 	ret
 endp Descending
 
 ;checks if we are on cube - only be used after finishing a jump
 proc Check_Where_Cube
-
+	push dx
 	cmp [Is_Going_up], 1
 	je @@end
 
@@ -2276,15 +2344,18 @@ proc Check_Where_Cube
 	je @@end
 
 	;now if it got here we landed after a jump
+	;to check if we are on ground we need to add our size to the ypos and check if it is equal to 161 - floor height
+	mov dx, [Ypos]
+	add dx, [CurrentSize]
 	
-	cmp [Ypos], 143 ; the y it supposed to be while on floor
+	cmp dx, 161 ; the y it supposed to be while on floor
 	jb @@above_ground
 	
 	jmp @@on_ground
 
 	@@above_ground:
 	
-	call Check_white_Under
+	call Check_floor_Under
 	cmp al, 0 ; in the air - no floor
 	je @@falling
 	
@@ -2300,6 +2371,7 @@ proc Check_Where_Cube
 	mov [Is_Going_down], 0
 
 	@@end:
+	pop dx
 	ret
 endp Check_Where_Cube
 
@@ -2413,7 +2485,7 @@ proc PickLevel
 endp PickLevel
 ;
 ;
-;		█
+;		
 ;       █
 ; █     █     ▲
 proc Level_One
@@ -2421,7 +2493,7 @@ proc Level_One
 	je @@move_objects
 	
 	mov [Objects_Placed], 1 ; signs that we are putting the objects in place
-	mov [Height_Tower], 3 ; height of three blocks of tower
+	mov [Height_Tower], 2 ; height of three blocks of tower
 	mov [Xpos_Blocks], 400 ; first block
 	mov [Ypos_Blocks], 143
 	
@@ -2451,9 +2523,9 @@ proc Level_One
 	ret
 endp Level_One
 ;
-;               •
+;               
+;        		•
 ;        █		█
-;        █		
 ; ▲      █		       ▲
 proc Level_Two
 	cmp [Objects_Placed], 1
@@ -2463,11 +2535,11 @@ proc Level_Two
 	mov [Xpos_Triangle], 360 ; first triangle
 	mov [Ypos_Triangle], 152
 	mov [Xpos_Tower], 490 ; the tower
-	mov [Height_Tower], 3 ; height of 3 blocks
+	mov [Height_Tower], 2 ; height of 3 blocks
 	mov [Xpos_Blocks], 580 ; floating block
-	mov [Ypos_Blocks], 107
+	mov [Ypos_Blocks], 125
 	mov [Xpos_Points], 586 ; bonus point above block
-	mov [Ypos_Points], 92
+	mov [Ypos_Points], 110
 	mov [Xpos_Triangle + 2], 710 ; last triangle
 	mov [Ypos_Triangle + 2], 152
 	
@@ -2508,17 +2580,17 @@ proc Level_Three
 	je @@move_objects
 	
 	mov [Objects_Placed], 1
-	mov [Xpos_Blocks], 330 ; first block
+	mov [Xpos_Blocks], 320 ; first block
 	mov [Ypos_Blocks], 143
-	mov [Xpos_Triangle], 330 ; first triangle above block
+	mov [Xpos_Triangle], 320 ; first triangle above block
 	mov [Ypos_Triangle], 134
-	mov [Xpos_Triangle + 2], 400 ; second triangle before third triangle
+	mov [Xpos_Triangle + 2], 440 ; second triangle before third triangle
 	mov [Ypos_Triangle + 2], 152
-	mov [Xpos_Triangle + 4], 420 ; third triangle
+	mov [Xpos_Triangle + 4], 460 ; third triangle
 	mov [Ypos_Triangle + 4], 152
-	mov [Xpos_Tower], 510
+	mov [Xpos_Tower], 590
 	mov [Height_Tower], 2 ; tower of 2 blocks
-	mov [Xpos_Points], 586 ; bonus point
+	mov [Xpos_Points], 656 ; bonus point
 	mov [Ypos_Points], 92
 	
 	call Draw_All
@@ -2527,7 +2599,7 @@ proc Level_Three
 	
 	call Erase_All
 	
-	mov ax, 5
+	mov ax, 6
 	
 	sub [Xpos_Blocks], ax
 	sub [Xpos_Triangle], ax
@@ -2543,6 +2615,8 @@ proc Level_Three
 	jmp @@end
 	
 	@@end_level:
+	cmp [Xpos_Tower], 64000 ; if we ate the bonus point before the level has ended ot will finish the level - so we will check if the tower has exited the screen
+	jb @@end
 	mov [Objects_Placed], 0
 	
 	@@end:
@@ -2550,9 +2624,9 @@ proc Level_Three
 endp Level_Three
 
 ;
+;          
 ;       █   ▲
-;       █   █
-;       █      █ 
+;       █   █  █ 
 ;  █    █      █  ▲
 proc Level_Four
 	cmp [Objects_Placed], 1
@@ -2562,11 +2636,11 @@ proc Level_Four
 	mov [Xpos_Blocks], 330 ; first block
 	mov [Ypos_Blocks], 143
 	mov [Xpos_Tower], 395 ; first tower
-	mov [Height_Tower], 4
+	mov [Height_Tower], 3
 	mov [Xpos_Blocks + 2], 455 ; second floating block
-	mov [Ypos_Blocks + 2], 107
+	mov [Ypos_Blocks + 2], 125
 	mov [Xpos_Triangle], 455 ; floating triangle
-	mov [Ypos_Triangle], 98
+	mov [Ypos_Triangle], 116
 	mov [Xpos_Tower + 2], 505 ; second tower
 	mov [Height_Tower + 2], 2 ; height of two blocks
 	mov [Xpos_Triangle + 2], 545 ; second triangle
@@ -2602,7 +2676,7 @@ endp Level_Four
 
 ;
 ;
-;        ▲     █
+;        ▲     
 ;        █     █
 ;   ▲█         █      ▲
 proc Level_Five
@@ -2619,7 +2693,7 @@ proc Level_Five
 	mov [Xpos_Triangle + 2], 420;second floating triangle
 	mov [Ypos_Triangle + 2], 116
 	mov [Xpos_Tower], 515 ; tower
-	mov [Height_Tower], 3
+	mov [Height_Tower], 2
 	mov [Xpos_Triangle + 4], 590
 	mov [Ypos_Triangle + 4], 152
 	
@@ -2658,7 +2732,7 @@ proc Level_Six
 	
 	mov [Objects_Placed], 1
 	mov [Xpos_Tower], 330 ; first tower
-	mov [Height_Tower], 3
+	mov [Height_Tower], 2
 	mov [Xpos_Points], 405 ; bonus point
 	mov [Ypos_Points], 85
 	mov [Xpos_Blocks], 455 ; first block
