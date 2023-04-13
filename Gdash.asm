@@ -2,32 +2,13 @@ IDEAL
 MODEL small
 p386
 
-BMP_WIDTH = 320
-BMP_HEIGHT = 200
-
 STACK 100h
+
+;For playing this game set DOSBOX to 7000 cycles
+;cycles=7000
 
 
 ;macros
-macro PUSH_ALL ; push all registers
-	push ax
-	push bx
-	push cx
-	push dx
-	push si
-	push di
-	push bp
-endm PUSH_ALL
-
-macro POP_ALL ; pop all registers
-	pop bp
-	pop di
-	pop si
-	pop dx
-	pop cx
-	pop bx
-	pop ax
-endm POP_ALL
 
 macro DRAW_FULL_BMP
 	;mov dx, ?
@@ -38,7 +19,7 @@ macro DRAW_FULL_BMP
 	call DrawPictureBmp
 endm DRAW_FULL_BMP
 
-macro PUSH_ALL_BP
+macro PUSH_ALL_BP ; push all registers with using bp
 	push bp
 	mov bp, sp
 	push ax
@@ -49,7 +30,7 @@ macro PUSH_ALL_BP
 	push di
 endm PUSH_ALL_BP
 
-macro POP_ALL_BP
+macro POP_ALL_BP ; pop all registers with using bp
 	pop di
 	pop si
 	pop dx
@@ -59,53 +40,58 @@ macro POP_ALL_BP
 	pop bp
 endm POP_ALL_BP
 
+Xpos_Cube = 50
+
 DATASEG
 ; --------------------------
 ; Your variables here
+	;random
+	RndCurrentPos dw start ; random label
 
-	bool_won db 0
+	bool_won db 0 ; if the player has the best score we will print his name on the final board
 
 	;start over
-	bool_start_over db 0
-
-	;random
-	RndCurrentPos dw start
+	bool_start_over db 0 ; will be changed by the player desicion in the end screen - if pressed yes or no
 
 	; -- player --
 	
 	;speed
-	delay dw 55
+	delay dw 55 ; delay between each frame
 	
 	;name
-	NamePlayer db 14, 16 dup (?), '$'
+	NamePlayer db 14, 16 dup (?), '$' ; name of the player which is inserted before starting
 	
 	;Bonus points
-	BonusPointsCounter db ?
+	BonusPointsCounter db ? ; the amount of times the player took a red bonus point
 	
 	;seconds alive
-	counterSeconds db ?
-	seconds dw ?
+	counterSeconds db ? ; mini counter for seconds - when hitting 27 one second has past
+	seconds dw ? ; the amount of seconds the player has been alive
 	
 	;score
-	FinalScore dw ?
-	FinalScoreTXT db "xxxx", '$'
+	FinalScore dw ? ; final score of the player 
+	FinalScoreTXT db "xxxx", '$' ; the number above but in text to print in end screen
 	
 	; -- Cube variables --
-	CurrentSize dw 18
+	CurrentSize dw 18 ; size of the cube according to each frame - while rotation
 	
 	; -- loop var --
-	IsExit db 0
+	IsExit db 0 ; to know if the game has ende
 	
 	; -- jump vars --
 	can_jump db 1 ; will sign if we are falling from a platform
 	
 	;rotation
-	timeInAir db 0
+	timeInAir db 0 ; to know which frame to print - 18 frames
+	;it takes 18 frames to make a full jump
+	;so when this timer hits the number 18 it finished the jump
+	;each frame will be selected by the number in this var
 	
 	;directions bools 
-	Is_Going_up db ?
-	Is_Going_down db ?
-	Is_Falling  db ?
+	Is_Going_up db ? ; if the cube is currently going up
+	Is_Going_down db ? ; if the cube is currently going down
+	Is_Falling  db ? ; if the cube is currently falling
+	;falling is a state when the cube didnt jump but in air - example: the cube landed on a block and did jump again
 	
 	;height calculation
 	Max_height dw ? ; max height when jumping will be calculated once
@@ -115,33 +101,37 @@ DATASEG
 	; -- position --
 	
 	;cube
-	Xpos dw 50
-	Ypos dw 143
+	Ypos dw 143 ; we only need the ypos because the cube wont change its place on screen only will jump - only changes in the ypos
 	
 	
 	; - blocks - 
 	;cube
 	
-	Xpos_Blocks dw -1, -1, -1, -1, -1
-	Ypos_Blocks dw -1, -1, -1, -1, -1
+	;we will put in all the objects minus one because we will check if an object is in the map (to know if to draw) by checking if below 301
+	;the reason for 301 is because the objects width is 18
+	;we will only check if below 301 in unsigned numbers
+	Xpos_Blocks dw 5 dup (-1)
+	Ypos_Blocks dw 5 dup (?)
 	
 	
 	;Triangle
-	Xpos_Triangle dw -1, -1, -1, -1, -1
-	Ypos_Triangle dw -1, -1, -1, -1, -1
+	Xpos_Triangle dw 5 dup (-1)
+	Ypos_Triangle dw 5 dup (?)
 	
 	;Tower
-	Xpos_Tower dw -1, -1, -1, -1, -1
-	Ypos_Tower dw -1, -1, -1, -1, -1 ; ypos is calculated by how many blocks we want
-	Height_Tower dw -1, -1, -1, -1, -1
+	
+	;when creating towers we will give the height of the tower instead Ypos
+	Xpos_Tower dw 5 dup (-1)
+	Ypos_Tower dw 5 dup (?) ; ypos is calculated by how many blocks we want
+	Height_Tower dw 5 dup (?)
 	
 	;Bonus Points
 	Xpos_Points dw -1
-	Ypos_Points dw -1
+	Ypos_Points dw ?
 	
 	;levels
-	Objects_Placed db ?
-	CurentLevel db ?
+	Objects_Placed db ? ; indicates if on the screen there are objects, if not randomize a new level
+	CurentLevel db ? ; will be randomized when a level has ended
 	
 	; -- drawing using matrix --
 	
@@ -214,9 +204,9 @@ DATASEG
 	
 	; background bmp picture var
 
-    OneBmpLine 	db BMP_WIDTH dup (0)  ; One Color line read buffer
+    OneBmpLine 	db 320 dup (0)  ; One Color line read buffer
    
-    ScrLine 	db BMP_WIDTH + 4 dup (0)  ; One Color line read buffer
+    ScrLine 	db 320 + 4 dup (0)  ; One Color line read buffer
 
 	;BMP File data
 	FileHandle	dw ?
@@ -263,12 +253,12 @@ DATASEG
 	
 	;scores
 	
-	FileName_Scores db 'scores.txt', 0
-	FileHandleScores dw ?
-	ScoreInFile db "xxxx", '$'
-	ScoreInNumbers dw ?
-	ErasePrevName db 13 dup ('x')
-	BestScoreHolder db 14 dup ('$')
+	FileName_Scores db 'scores.txt', 0 ; the name of the highest score ever
+	FileHandleScores dw ? ; the file handle
+	ScoreInFile db "xxxx", '$' ; score in file in text
+	ScoreInNumbers dw ? ; the score in file converted to number
+	ErasePrevName db 13 dup ('x') ; if a player did a new high score
+	BestScoreHolder db 14 dup ('$') ; the name of the best player with the highest score
 ; --------------------------
 
 CODESEG
@@ -309,12 +299,16 @@ exit:
 
 ;set the settings of game
 proc SettingsGame
-	call SetGraphics ; graphics
+	call SetGraphics ; sets to graphics mode
 	
 	call SetMouseLimits ; set mouse limits of screen
 	ret
 endp SettingsGame
 
+;checks if the player wanted to play again
+;if so check which screen the player picked with the mouse
+;when the player finally picked starting screen it will get out of the screen and start the game
+;so we will print the background and print the cube
 proc StartingGame
 	mov [bool_start_over], 0 ; resetting this bool
 	
@@ -330,6 +324,8 @@ proc StartingGame
 	ret
 endp StartingGame
 
+;picks a random level then moves the cube by the bools
+;then counts seconds and delay the game
 proc GameLoop
 	call PickLevel ; picks a random level
 	
@@ -342,6 +338,9 @@ proc GameLoop
 	ret
 endp GameLoop
 
+;checks if our score is higher then the highest score, if so it replaces it
+;then print the end screen
+;closes the file and gets dos box the control back
 proc EndGame
 	call ChangeScoreHighest ; handles the score using the file
 	call End_Screen ; end screen printing and writing and mouse
@@ -352,13 +351,15 @@ proc EndGame
 	mov bx, [FileHandleScores]
 	int 21h
 	
+	call Terminate
+	
 	ret
 endp EndGame
 	
 ;calculating the score - each bonus point is 2 more seconds to total
 ;total seconds + number of bonus point * 2 = score
 proc CalcScore
-	PUSH_ALL
+	pusha
 	
 	;number of bonus point * 2
 	xor ax, ax
@@ -370,7 +371,7 @@ proc CalcScore
 	mov [FinalScore], ax
 
 
-	POP_ALL
+	popa
 	ret
 endp CalcScore
 	
@@ -378,7 +379,7 @@ endp CalcScore
 ;dealing with the scores
 ;will move to var "ScoreInNumbers" the score in the file
 proc ChangeScoreHighest
-	PUSH_ALL
+	pusha
 
 	;opening file
 	mov ah, 3dh
@@ -400,7 +401,7 @@ proc ChangeScoreHighest
 	mov cx, 4 ; four chars
 	mov bl, 10 ; we will multiply each time by 10
 	
-	@@turnIntoNum:
+@@turnIntoNum:
 	xor dx, dx
 	mov dl, [byte si]
 	sub dl, '0' ; turn into real number (char -> number)
@@ -417,14 +418,14 @@ proc ChangeScoreHighest
 	;now we will put the highest score
 	call SetHighScore
 
-	POP_ALL
+	popa
 	ret
 endp ChangeScoreHighest
 
 ;we will compare the two scores
 ;if our score is higher then the highest then we put our in the var "ScoreInNumbers" and change it to text and put it in "ScoreInFile"
 proc SetHighScore
-	PUSH_ALL
+	pusha
 
 	mov ax, [FinalScore] ; our score
 	
@@ -440,7 +441,7 @@ proc SetHighScore
 	mov si, offset ScoreInFile + 3 ;go to the end of var
 	mov cx, 4
 	mov bx, 10 ; to div every time by ten
-	@@change_to_text:
+@@change_to_text:
 	xor dx, dx
 	div bx
 	add dl, '0'
@@ -481,8 +482,8 @@ proc SetHighScore
 	int 21h
 
 
-	@@end:
-	POP_ALL
+@@end:
+	popa
 	ret
 endp SetHighScore
 
@@ -494,10 +495,10 @@ proc LoopDelay
 	push cx
 
 	mov cx, [bp + 4]
-	@@self1:
+@@self1:
 	push cx
 	mov cx, 3000
-	@@self2:
+@@self2:
 	loop @@self2
 	pop cx
 	loop @@self1
@@ -516,14 +517,14 @@ proc CountSeconds
 	jne @@cont
 	inc [seconds]
 	mov [counterSeconds], 0
-	@@cont:
+@@cont:
 
 	ret
 endp CountSeconds
 
 ;sets the limit for starting screens
 proc SetMouseLimits
-	PUSH_ALL
+	pusha
 
 	mov ax, 7 ; set limits of mouse - X
 	mov cx, 17 ; min
@@ -537,13 +538,13 @@ proc SetMouseLimits
 	mov dx, 162 ; max
 	int 33h
 
-	POP_ALL
+	popa
 	ret
 endp SetMouseLimits
 
 ;for loading screen
 proc MouseShow
-	PUSH_ALL
+	pusha
 	
 	call DrawStartScreen ; draw the start screen
 	
@@ -551,7 +552,7 @@ proc MouseShow
 	mov ax, 1 ; show mouse
 	int 33h
 
-	@@wait_for_left:
+@@wait_for_left:
 	mov ax, 3
 	int 33h
 	
@@ -576,7 +577,7 @@ proc MouseShow
 	call Name_Screen
 	jmp @@end
 	
-	@@check2:
+@@check2:
 	;check if left button
 	
 	cmp cx, 40
@@ -594,7 +595,7 @@ proc MouseShow
 	call Guiding_Screen
 	jmp @@end
 	
-	@@check3:
+@@check3:
 	
 	;check if right button
 	cmp cx, 231
@@ -612,13 +613,14 @@ proc MouseShow
 	call Settings_Screen
 	
 	
-	@@end:
-	POP_ALL
+@@end:
+	popa
 	ret
 endp MouseShow
 
+;will show how to play the game and will check if the mouse hit the "back" sign
 proc Guiding_Screen
-	PUSH_ALL
+	pusha
 
 	mov ax, 2
 	int 33h
@@ -629,7 +631,7 @@ proc Guiding_Screen
 	mov ax, 1
 	int 33h
 	
-	@@check_click:
+@@check_click:
 	mov ax, 3
 	int 33h
 	
@@ -655,12 +657,12 @@ proc Guiding_Screen
 	int 33h
 	call MouseShow
 
-	POP_ALL
+	popa
 	ret
 endp Guiding_Screen
 
 proc Settings_Screen
-	PUSH_ALL
+	pusha
 	
 	mov ax, 2
 	int 33h
@@ -671,7 +673,7 @@ proc Settings_Screen
 	mov ax, 1
 	int 33h
 	
-	@@check_click:
+@@check_click:
 	mov ax, 3
 	int 33h
 	
@@ -697,15 +699,13 @@ proc Settings_Screen
 	int 33h
 	call MouseShow
 	
-
-
-
-	POP_ALL
+	popa
 	ret
 endp Settings_Screen
 
+;after hitting the start sign, it will ask for the players' name
 proc Name_Screen
-	PUSH_ALL
+	pusha
 	
 	mov ax, 2 ; hide mouse
 	int 33h
@@ -716,7 +716,7 @@ proc Name_Screen
 	mov ax, 1 ; show mouse
 	int 33h
 
-	@@check_click: ;check if left click was on the name enter
+@@check_click: ;check if left click was on the name enter
 	mov ax, 3
 	int 33h
 	
@@ -740,7 +740,7 @@ proc Name_Screen
 	call Enter_Name
 	jmp @@end
 	
-	@@cont:
+@@cont:
 	
 	;check if got back
 	cmp cx, 21
@@ -761,13 +761,13 @@ proc Name_Screen
 	call MouseShow
 	
 
-	@@end:
-	POP_ALL
+@@end:
+	popa
 	ret
 endp Name_Screen
 
 proc End_Screen
-	PUSH_ALL
+	pusha
 
 	mov dx, offset FileName_End ; draw the picture
 	DRAW_FULL_BMP
@@ -784,7 +784,7 @@ proc End_Screen
 	
 	;check mouse
 	
-	@@check_mouse:
+@@check_mouse:
 	mov ax, 3 ; get mouse details
 	int 33h
 	
@@ -805,10 +805,9 @@ proc End_Screen
 	cmp cx, 275
 	ja @@check_mouse
 	
-	call Terminate
 	jmp @@end
 	
-	@@yes:
+@@yes:
 	cmp cx, 39
 	jb @@check_mouse
 	
@@ -817,11 +816,12 @@ proc End_Screen
 	
 	call Reset
 	
-	@@end:
-	POP_ALL
+@@end:
+	popa
 	ret
 endp End_Screen
 
+;reset all vars if a player has picked the "yes" button in the end screen
 proc Reset
 
 	mov [NamePlayer], 14
@@ -883,7 +883,6 @@ proc Reset
 	; -- position --
 	
 	;cube
-	mov [Xpos], 50
 	mov [Ypos], 143
 	
 	mov [Objects_Placed], ?
@@ -1038,14 +1037,14 @@ endp WriteScore
 ;takes our final score and turn it into text to print in final screen
 ;puts it in "FinalScoreTXT"
 proc ChangeScoreToTXT
-	PUSH_ALL
+	pusha
 	
 	mov ax, [FinalScore]
 
 	mov si, offset FinalScoreTXT + 3 ;go to the end of var
 	mov cx, 4
 	mov bx, 10 ; to div every time by ten
-	@@change_to_text:
+@@change_to_text:
 	xor dx, dx
 	div bx
 	add dl, '0'
@@ -1053,7 +1052,7 @@ proc ChangeScoreToTXT
 	dec si
 	loop @@change_to_text
 
-	POP_ALL
+	popa
 	ret
 endp ChangeScoreToTXT
 
@@ -1064,10 +1063,10 @@ endp ChangeScoreToTXT
 ; Register Usage: None
 ;================================================
 proc DrawStartScreen
-	PUSH_ALL
+	pusha
 	mov dx, offset FileName_start ; start screen
 	DRAW_FULL_BMP
-	POP_ALL
+	popa
 	ret
 endp DrawStartScreen
 
@@ -1078,18 +1077,25 @@ endp DrawStartScreen
 ; Register Usage: None
 ;================================================
 proc DrawBackground
-	PUSH_ALL
+	pusha
 	mov dx, offset FileName_background
 	DRAW_FULL_BMP
-	POP_ALL
+	popa
 	ret
 endp DrawBackground
 
+
+;================================================
+; Description -  in the name screen it requirs a name to be entered, so we will check if any chars have been entered, if not print an error msg
+; INPUT: any sort of chars and then enter
+; OUTPUT: name stored in DS
+; Register Usage: None
+;================================================
 proc Enter_Name
-	PUSH_ALL
+	pusha
 	jmp @@Get_name
 	
-	@@print_Error:
+@@print_Error:
 	mov dx, offset FileName_NameError
 	push 35
 	push 110
@@ -1100,7 +1106,7 @@ proc Enter_Name
 	
 
 	;hide mouse to now enter name
-	@@Get_name:
+@@Get_name:
 	mov ax, 2
 	int 33h
 	
@@ -1126,7 +1132,7 @@ proc Enter_Name
 	int 10h
 
 
-	POP_ALL
+	popa
 	ret
 endp Enter_Name
 ;================================================
@@ -1141,7 +1147,7 @@ endp Enter_Name
 
 ;cube - using bmp
 proc DrawCube
-	PUSH_ALL
+	pusha
 	
 	;pick size
 	;picks a bmp by the seconds of the cube in the air
@@ -1155,7 +1161,7 @@ proc DrawCube
 	mul bx
 	
 	mov di, ax
-	add di, [Xpos]
+	add di, Xpos_Cube
 	
 	;size
 	mov cx, [CurrentSize] ; rows
@@ -1165,7 +1171,7 @@ proc DrawCube
 	
 	pop dx
 	;for printing bmp we need - Xpos, Ypos, Height, Width - Through stack
-	push [Xpos]
+	push Xpos_Cube
 	dec [Ypos]
 	push [Ypos]
 	inc [Ypos]
@@ -1174,7 +1180,7 @@ proc DrawCube
 	call DrawPictureBmp
 	;print
 	
-	POP_ALL
+	popa
 	ret
 endp DrawCube
 
@@ -1188,13 +1194,13 @@ proc Pick_bmp_by_height
 	cmp [can_jump], 0 ; if on ground or block
 	je @@in_air
 	
-	@@90_deg:
+@@90_deg:
 	mov [timeInAir], 0
 	mov [CurrentSize], 18
 	mov dx, offset FileName_cube
 	jmp @@print
 
-	@@in_air:
+@@in_air:
 	mov al, [timeInAir]
 	
 	cmp al, 1
@@ -1247,111 +1253,111 @@ proc Pick_bmp_by_height
 
 	jmp @@85_deg ; if it got here it got to be 17
 	
-	@@5_deg:
+@@5_deg:
 	mov [CurrentSize], 20 ; the sizes of the image
 	mov dx, offset FileName_cube5
 	jmp @@print
 	
-	@@10_deg:
+@@10_deg:
 	mov [CurrentSize], 21
 	mov dx, offset FileName_cube10
 	jmp @@print
 	
-	@@15_deg:
+@@15_deg:
 	mov [CurrentSize], 22
 	mov dx, offset FileName_cube15
 	jmp @@print
 	
-	@@20_deg:
+@@20_deg:
 	mov [CurrentSize], 23
 	mov dx, offset FileName_cube20
 	jmp @@print
 	
-	@@25_deg:
+@@25_deg:
 	mov [CurrentSize], 24
 	mov dx, offset FileName_cube25
 	jmp @@print
 	
-	@@30_deg:
+@@30_deg:
 	mov [CurrentSize], 24
 	mov dx, offset FileName_cube30
 	jmp @@print
 	
-	@@35_deg:
+@@35_deg:
 	mov [CurrentSize], 25
 	mov dx, offset FileName_cube35
 	jmp @@print
 	
-	@@40_deg:
+@@40_deg:
 	mov [CurrentSize], 25
 	mov dx, offset FileName_cube40
 	jmp @@print
 	
-	@@45_deg:
+@@45_deg:
 	mov [CurrentSize], 25
 	mov dx, offset FileName_cube45
 	jmp @@print
 	
-	@@50_deg:
+@@50_deg:
 	mov [CurrentSize], 25
 	mov dx, offset FileName_cube50
 	jmp @@print	
 	
-	@@55_deg:
+@@55_deg:
 	mov [CurrentSize], 25
 	mov dx, offset FileName_cube55
 	jmp @@print	
 	
-	@@60_deg:
+@@60_deg:
 	mov [CurrentSize], 24
 	mov dx, offset FileName_cube60
 	jmp @@print	
 	
-	@@65_deg:
+@@65_deg:
 	mov [CurrentSize], 24
 	mov dx, offset FileName_cube65
 	jmp @@print
 	
-	@@70_deg:
+@@70_deg:
 	mov [CurrentSize], 23
 	mov dx, offset FileName_cube70
 	jmp @@print
 	
-	@@75_deg:
+@@75_deg:
 	mov [CurrentSize], 22
 	mov dx, offset FileName_cube75
 	jmp @@print	
 	
-	@@80_deg:
+@@80_deg:
 	mov [CurrentSize], 21
 	mov dx, offset FileName_cube80
 	jmp @@print
 	
-	@@85_deg:
+@@85_deg:
 	mov [CurrentSize], 19
 	mov dx, offset FileName_cube85
 
 
-	@@print:
+@@print:
 	inc [timeInAir]
 	cmp [timeInAir], 18 ; if equal to ten mak it zero
 	jb @@end
 	
 	mov [timeInAir], 0
 	
-	@@end:
+@@end:
 	ret
 endp Pick_bmp_by_height
 
 ;we will draw the saved background on the cube to erase it
 proc Erase_Cube
-	PUSH_ALL
+	pusha
 	mov ax, [Ypos]
 	mov bx, 320
 	mul bx
 	
 	mov di, ax
-	add di, [Xpos]
+	add di, Xpos_Cube
 	
 	mov cx, [CurrentSize]
 	mov dx, [CurrentSize]
@@ -1360,12 +1366,12 @@ proc Erase_Cube
 	mov [matrix], bx
 	
 	call putMatrixInScreen
-	POP_ALL
+	popa
 	ret
 endp Erase_Cube
 
 proc Copy_Background_Cube
-	PUSH_ALL
+	pusha
 	
 	;the other parameters are calculated before
 	mov cx, [CurrentSize]
@@ -1375,19 +1381,19 @@ proc Copy_Background_Cube
 	mov [matrix], bx
 	
 	call putMatrixInData
-	POP_ALL
+	popa
 	ret
 endp Copy_Background_Cube
 
 ;block - we need to check where is the cube to know how to print it
 ;goes through every block and draws if on screen
 proc DrawBlock
-	PUSH_ALL
+	pusha
 	
 	xor si, si
 	xor bp, bp
 	mov cx, 5
-	@@drawAllBlocks:
+@@drawAllBlocks:
 	push cx
 	cmp [Xpos_Blocks + si], 301 ; if this is out of screen dont draw
 	ja @@end_loop
@@ -1417,24 +1423,25 @@ proc DrawBlock
 	
 	call putMatrixInScreen
 	
-	@@end_loop:
+@@end_loop:
 	add bp, 324 ; the other block
 	add si, 2
 	pop cx
 	loop @@drawAllBlocks
 	
-	POP_ALL
+	popa
 	ret
 endp DrawBlock
 
-
+;will print the saved background on the screen and by doing this it will erase the block
+;will check if the block is alive and then print its save background
 proc Erase_Block
-	PUSH_ALL
+	pusha
 
 	xor si, si
 	mov cx, 5
 	xor bp, bp
-	@@drawAllBlocks:
+@@drawAllBlocks:
 	push cx
 	cmp [Xpos_Blocks + si], 301 ; if this is out of screen dont draw
 	ja @@end_loop
@@ -1457,13 +1464,13 @@ proc Erase_Block
 	
 	call putMatrixInScreen
 	
-	@@end_loop:
+@@end_loop:
 	add bp, 324 ; the other block
 	add si, 2
 	pop cx
 	loop @@drawAllBlocks
 
-	POP_ALL
+	popa
 	ret
 endp Erase_Block
 
@@ -1494,12 +1501,12 @@ endp DrawBlock_Stack
 
 
 proc Draw_Triangle
-	PUSH_ALL
+	pusha
 	
 	xor si, si
 	xor bp, bp
 	mov cx, 5
-	@@drawTriangles:
+@@drawTriangles:
 	push cx
 	cmp [Xpos_Triangle + si], 301 ; if this is out of screen dont draw
 	ja @@end_loop
@@ -1527,24 +1534,24 @@ proc Draw_Triangle
 
 	call putMatrixInScreen
 	
-	@@end_loop:
+@@end_loop:
 	add bp, 162
 	add si, 2
 	pop cx
 	loop @@drawTriangles
 	
-	POP_ALL
+	popa
 	ret
 endp Draw_Triangle
 
-
+;will check if a triangle is on map, if yes print it
 proc Erase_Triangle
-	PUSH_ALL
+	pusha
 	
 	xor si, si
 	xor bp, bp
 	mov cx, 5
-	@@drawTriangles:
+@@drawTriangles:
 	push cx
 	
 	cmp [Xpos_Triangle + si], 301 ; if this is out of screen dont draw
@@ -1568,13 +1575,13 @@ proc Erase_Triangle
 	
 	call putMatrixInScreen ; we will copy the background before drawing
 	
-	@@end_loop:
+@@end_loop:
 	add bp, 162
 	add si, 2
 	pop cx
 	loop @@drawTriangles
 
-	POP_ALL
+	popa
 	ret
 endp Erase_Triangle
 
@@ -1585,12 +1592,12 @@ endp Erase_Triangle
 ; Register Usage: None
 ;================================================
 proc Draw_Tower
-	PUSH_ALL
+	pusha
 	
 	xor si, si
 	xor bp, bp
 	mov cx, 5
-	@@drawAllTowers:
+@@drawAllTowers:
 	push cx
 	cmp [Xpos_Tower + si], 301
 	ja @@end_loop
@@ -1614,26 +1621,26 @@ proc Draw_Tower
 	call Copy_Background_Tower ; firstly we will copy the background
 	
 	;because cx has the number of blocks we want we can use it in a loop
-	@@draw_blocks: ; basically it draws the tower block by block from top to down
+@@draw_blocks: ; basically it draws the tower block by block from top to down
 	push bx ; push y
 	push [Xpos_Tower + si] ; push x
 	
 	call DrawBlock_Stack ; then draw it
 	add bx, 18 ; add to y to draw the next block
 	loop @@draw_blocks
-	@@end_loop:
+@@end_loop:
 	add si, 2
 	add bp, 1620 ; a whole tower
 	pop cx
 	loop @@drawAllTowers
 	
-	POP_ALL
+	popa
 	ret
 endp Draw_Tower
 
 ;we have a copy background var that holds 1620 bytes - for maximum height of five blocks
 proc Copy_Background_Tower
-	PUSH_ALL
+	pusha
 	
 	mov ax, [Ypos_Tower + si] ; Ypos
 	mov bx, 320
@@ -1656,18 +1663,18 @@ proc Copy_Background_Tower
 	mov [matrix], bx
 	call putMatrixInData
 
-	POP_ALL
+	popa
 	ret
 endp Copy_Background_Tower
 
 ;goes each block and paints on it his background
 proc Erase_Tower
-	PUSH_ALL
+	pusha
 	
 	xor si, si
 	xor bp, bp
 	mov cx, 5
-	@@eraseAllTowers:
+@@eraseAllTowers:
 	push cx
 	cmp [Xpos_Tower + si], 301
 	ja @@end_loop
@@ -1693,18 +1700,18 @@ proc Erase_Tower
 	mov [matrix], bx
 	call putMatrixInScreen 
 	
-	@@end_loop:
+@@end_loop:
 	add si, 2
 	add bp, 1620
 	pop cx
 	loop @@eraseAllTowers
 	
-	POP_ALL
+	popa
 	ret
 endp Erase_Tower
 
 proc DrawPoint
-	PUSH_ALL
+	pusha
 	
 	cmp [Xpos_Points], 310
 	ja @@end
@@ -1727,8 +1734,8 @@ proc DrawPoint
 	
 	call putMatrixInScreen ; drawing
 	
-	@@end:
-	POP_ALL
+@@end:
+	popa
 	ret
 endp DrawPoint
 
@@ -1742,7 +1749,7 @@ proc Copy_Background_Points
 endp Copy_Background_Points
 
 proc Erase_point
-	PUSH_ALL
+	pusha
 	
 	cmp [Xpos_Points], 310
 	ja @@end
@@ -1763,8 +1770,8 @@ proc Erase_point
 	call putMatrixInScreen
 
 
-	@@end:
-	POP_ALL
+@@end:
+	popa
 	ret
 endp Erase_point
 
@@ -1775,7 +1782,7 @@ endp Erase_point
 ; Register Usage: None
 ;================================================
 proc Key_Check
-	PUSH_ALL
+	pusha
 	
 	;checl if the mouse was pressed
 	mov ax, 3
@@ -1801,28 +1808,33 @@ proc Key_Check
 	
 	jmp @@end
 	
-	@@exit_game:
+@@exit_game:
 	mov [IsExit], 1
 	jmp @@end
 	
-	@@jump:
+@@jump:
 	cmp [can_jump], 1
 	jne @@end
 	mov [Is_Going_up], 1
 
-	@@end:	
-	POP_ALL
+@@end:	
+	popa
 	ret
 endp Key_Check
 
-;al will be one if there is a floor under us
+;================================================
+; Description -  checks if there is white or black under the cube - if yes there is floor
+; INPUT: None
+; OUTPUT: al will be one if there is floor under us
+; Register Usage: None
+;================================================
 proc Check_floor_Under
 
 	cmp [Ypos], 143
 	je @@floor
 
 	mov ah, 0dh
-	mov cx, [Xpos]
+	mov cx, Xpos_Cube
 	mov dx, [Ypos]
 	add dx, [CurrentSize] ; down left
 	int 10h
@@ -1855,37 +1867,36 @@ proc Check_floor_Under
 	xor al, al
 	jmp @@end
 
-	@@floor:
+@@floor:
 	mov al, 1
 
-	@@end:
+@@end:
 	ret
 endp Check_floor_Under
 
 ;check if our cube has hit any moving objects
 proc Check_Hit
-	PUSH_ALL
+	pusha
 	
-	call Check_Point
+	call Check_Point ; check if we hit a bonus point
 	
-	call Check_Blocks
+	call Check_Blocks ; check if we died by blocks
 	cmp al, 1
 	je @@end_game
 	
 	;and we want to check if we hit a triangle
-	call Check_Triangle
+	call Check_Triangle ; if we died by a triangle
 	cmp al, 1
 	je @@end_game
 
-	
+	; if not it means nothing happend 
 	jmp @@end
 	
-	@@end_game:
+@@end_game:
 	mov [IsExit], 1
 	
-	
-	@@end:
-	POP_ALL
+@@end:
+	popa
 	ret
 endp Check_Hit
 
@@ -1904,7 +1915,7 @@ proc Check_Point
 	add di, 13 ; end of point Y
 	sub bx, 4
 	
-	mov cx, [Xpos]
+	mov cx, Xpos_Cube
 	add cx, [CurrentSize]
 	add cx, 7 ; a little bit forward of cube
 	mov dx, [Ypos]
@@ -1979,12 +1990,12 @@ proc Check_Point
 	
 	jmp @@end
 
-	@@catch_point:
+@@catch_point:
 	inc [BonusPointsCounter] ; sign that we hit a bonus point
 	call Erase_point
 	mov [Xpos_Points], -1
 
-	@@end:
+@@end:
 	popa
 	ret
 endp Check_Point
@@ -2014,7 +2025,7 @@ proc CheckIsInPoint
 	;if it got here we are in the point
 	inc bp
 
-	@@end:
+@@end:
 	ret
 endp CheckIsInPoint
 
@@ -2023,7 +2034,7 @@ proc Check_Blocks
 	;we will use the 25 numbers because the maximun size of the cube is 25*25 while rotation
 	;we will check three pixels to the right up and down
 	mov ah,0Dh
-	mov cx,[Xpos]
+	mov cx, Xpos_Cube
 	mov dx, [Ypos]
 	sub dx, 5
 	sub cx, 4
@@ -2051,7 +2062,7 @@ proc Check_Blocks
 	je @@end_game
 	
 	;now we go down
-	mov cx,[Xpos] ; right wall down
+	mov cx, Xpos_Cube ; right wall down
 	mov dx, [Ypos]
 	add cx, [CurrentSize]	;here we will check normal sides
 	add dx, [CurrentSize]
@@ -2076,7 +2087,7 @@ proc Check_Blocks
 	;now we go up
 	cmp [can_jump], 1
 	je @@end
-	mov cx,[Xpos]
+	mov cx, Xpos_Cube
 	mov dx, [Ypos]
 	add cx, [CurrentSize]	;right wall up - above cube
 	dec dx
@@ -2102,9 +2113,9 @@ proc Check_Blocks
 	xor al, al
 	jmp @@end
 	
-	@@end_game:
+@@end_game:
 	mov al, 1
-	@@end:
+@@end:
 	ret
 endp Check_Blocks
 
@@ -2114,7 +2125,7 @@ endp Check_Blocks
 proc Check_Triangle
 
 	xor si, si
-	@@checkEachTriangle:
+@@checkEachTriangle:
 	
 	mov ax, [Xpos_Triangle + si]
 	cmp ax, 301
@@ -2134,7 +2145,7 @@ proc Check_Triangle
 	add bp, 8 ; end of triangle in y
 	
 	;left down
-	mov cx, [Xpos]
+	mov cx, Xpos_Cube
 	mov dx, [Ypos]
 	add dx, [CurrentSize]
 	
@@ -2158,7 +2169,7 @@ proc Check_Triangle
 	jmp @@end_game
 	
 	;right side
-	@@check2:
+@@check2:
 	add cx, [CurrentSize]
 	sub cx, 4
 	;we need to check couple of x before the triangle and infront
@@ -2181,7 +2192,7 @@ proc Check_Triangle
 	;if it got here it means we are in the triangle
 	jmp @@end_game
 	
-	@@check3:
+@@check3:
 	sub cx, 10
 	
 	;now we will just copy the above
@@ -2201,29 +2212,29 @@ proc Check_Triangle
 	jmp @@end_game
 	
 	
-	@@end_loop:
+@@end_loop:
 	add si, 2
 	cmp si, 8 ; five objects
 	jb @@checkEachTriangle
 	
 	
 
-	@@end_check:
+@@end_check:
 	xor al, al
 	jmp @@end
 	
-	@@end_game:
+@@end_game:
 	mov al, 1
 	mov [IsExit], 1
 	
-	@@end:
+@@end:
 	ret
 endp Check_Triangle
 
 ;in case the jump has ended and we are not on the floor
 ;this will check if we have floor under us while falling from a block - when not jumpimg
 proc Check_Fall
-	PUSH_ALL
+	pusha
 
 	;we need to go down - no floor
 	mov [Is_Falling], 1
@@ -2233,15 +2244,15 @@ proc Check_Fall
 	ja @@hit_floor
 	jmp @@end
 	
-	@@hit_floor:
+@@hit_floor:
 	
 	mov [Ypos], 143
 	mov [can_jump], 1 ; we can jump again - in case we are falling we will cancel the jump movement so when when stop falling we cant jump
 	mov [Is_Falling], 0
 	mov [Is_Going_down], 0
 	
-	@@end:
-	POP_ALL
+@@end:
+	popa
 	ret
 endp Check_Fall
 
@@ -2252,7 +2263,7 @@ endp Check_Fall
 ; Register Usage: None
 ;================================================
 proc Cube_Ascend
-	PUSH_ALL
+	pusha
 	
 	cmp [Is_Going_up], 0 ; checks if we even go up
 	je @@end ; if not go to end
@@ -2272,7 +2283,7 @@ proc Cube_Ascend
 	mov [Max_height], ax
 	mov [bool_calc_max_height], 1 ; signs that we calculated it
 	
-	@@go_up:
+@@go_up:
 	mov ax, [Max_height]
 	mov [Is_Going_up], 1 ; signs that we are going up
 	
@@ -2287,19 +2298,19 @@ proc Cube_Ascend
 	sub [Ypos], 6
 	jmp @@end
 	
-	@@slow:
+@@slow:
 	
 	sub [Ypos], 3
 	jmp @@end
 	
-	@@stop_up:
+@@stop_up:
 	mov [Is_Going_up], 0 ; signs that we stop ascending
 	mov [Is_Going_down], 1 ; we now can go down - this can't be controlled by the player, only the game controlls this bool
 	mov [bool_calc_max_height], 0
 	mov [can_jump], 0
 	
-	@@end:
-	POP_ALL
+@@end:
+	popa
 	ret
 endp Cube_Ascend
 
@@ -2325,11 +2336,11 @@ proc Descending
 	
 	jmp @@end
 
-	@@end_jump:
+@@end_jump:
 	mov [can_jump], 1
 	mov [Is_Going_down], 0 ; finished going down
 	
-	@@end:
+@@end:
 	popa
 	ret
 endp Descending
@@ -2353,7 +2364,7 @@ proc Check_Where_Cube
 	
 	jmp @@on_ground
 
-	@@above_ground:
+@@above_ground:
 	
 	call Check_floor_Under
 	cmp al, 0 ; in the air - no floor
@@ -2362,15 +2373,15 @@ proc Check_Where_Cube
 	mov [can_jump], 1
 	jmp @@end
 	
-	@@falling:
+@@falling:
 	mov [Is_Falling], 1
 	jmp @@end
 	
-	@@on_ground:
+@@on_ground:
 	mov [Is_Going_up], 0
 	mov [Is_Going_down], 0
 
-	@@end:
+@@end:
 	pop dx
 	ret
 endp Check_Where_Cube
@@ -2378,7 +2389,7 @@ endp Check_Where_Cube
 ;main function of the cube
 ;checks the state of the cube with bools, and starts each function
 proc Cube_Move
-	PUSH_ALL
+	pusha
 	
 	cmp [Is_Going_up], 1 ; if we go up then continue ascending
 	je @@jump
@@ -2391,31 +2402,31 @@ proc Cube_Move
 	
 	jmp @@end_move
 	
-	@@jump:
+@@jump:
 	call Erase_Cube
 	call Cube_Ascend
 	call DrawCube
 	jmp @@end_move
 	
-	@@go_down:
+@@go_down:
 	call Erase_Cube
 	call Descending
 	call DrawCube
 	jmp @@end_move
 	
-	@@fall:
+@@fall:
 	call Erase_Cube
 	call Check_Fall
 	call DrawCube
 	
-	@@end_move:
+@@end_move:
 	
 	call Check_Where_Cube
 	call Check_Hit ; if we got into a block or triangle and died
 	
 	
-	@@end:
-	POP_ALL
+@@end:
+	popa
 	ret
 endp Cube_Move
 
@@ -2454,32 +2465,32 @@ proc PickLevel
 	cmp al, 6
 	je @@level_six
 	
-	@@level_one:
+@@level_one:
 	call Level_One
 	jmp @@end
 	
-	@@level_two:
+@@level_two:
 	call Level_Two
 	jmp @@end
 	
-	@@level_three:
+@@level_three:
 	call Level_Three
 	jmp @@end
 	
-	@@level_four:
+@@level_four:
 	call Level_Four
 	jmp @@end
 	
-	@@level_five:
+@@level_five:
 	call Level_Five
 	jmp @@end
 	
-	@@level_six:
+@@level_six:
 	call Level_Six
 	jmp @@end
 	
 	
-	@@end:
+@@end:
 	popa
 	ret
 endp PickLevel
@@ -2504,7 +2515,7 @@ proc Level_One
 	
 	call Draw_All ; we need to draw the objects first to erase them after
 	
-	@@move_objects:
+@@move_objects:
 	call Erase_All
 	
 	sub [Xpos_Triangle], 5
@@ -2516,10 +2527,10 @@ proc Level_One
 	call Draw_All
 	jmp @@end
 	
-	@@end_level:
+@@end_level:
 	mov [Objects_Placed], 0
 	
-	@@end:
+@@end:
 	ret
 endp Level_One
 ;
@@ -2545,7 +2556,7 @@ proc Level_Two
 	
 	call Draw_All
 	
-	@@move_objects:
+@@move_objects:
 	call Erase_All
 	
 	mov ax, 5
@@ -2562,11 +2573,10 @@ proc Level_Two
 	call Draw_All
 	jmp @@end
 	
-	@@end_level:
-	
+@@end_level:	
 	mov [Objects_Placed], 0
 
-	@@end:
+@@end:
 	ret
 endp Level_Two
 
@@ -2595,7 +2605,7 @@ proc Level_Three
 	
 	call Draw_All
 	
-	@@move_objects:
+@@move_objects:
 	
 	call Erase_All
 	
@@ -2611,12 +2621,13 @@ proc Level_Three
 	cmp [Xpos_Points], 64000
 	ja @@end_level
 	
+@@draw:
 	call Draw_All
 	jmp @@end
 	
-	@@end_level:
+@@end_level:
 	cmp [Xpos_Tower], 64000 ; if we ate the bonus point before the level has ended ot will finish the level - so we will check if the tower has exited the screen
-	jb @@end
+	jb @@draw
 	mov [Objects_Placed], 0
 	
 	@@end:
@@ -2650,7 +2661,7 @@ proc Level_Four
 	
 	call Draw_All
 	
-	@@move_objects:
+@@move_objects:
 	call Erase_All
 	
 	mov ax, 5
@@ -2666,11 +2677,11 @@ proc Level_Four
 	call Draw_All
 	jmp @@end
 
-	@@end_level:
+@@end_level:
 	mov [Objects_Placed], 0
 	add [delay], 7
 
-	@@end:
+@@end:
 	ret
 endp Level_Four
 
