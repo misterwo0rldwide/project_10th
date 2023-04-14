@@ -58,6 +58,11 @@ DATASEG
 	;speed
 	delay dw 55 ; delay between each frame
 	
+	;picked color
+	;these colors will be picked by the player in the start screen
+	OutSideColor db 3fh
+	InsideColor db 9h
+	
 	;name
 	NamePlayer db 14, 16 dup (?), '$' ; name of the player which is inserted before starting
 	
@@ -3242,7 +3247,29 @@ proc MatrixBMP
 	cld ; Clear direction flag, for movsb
 	mov cx,[CurrentSize]  
 	mov si,offset ScrLine
-	rep movsb ; Copy line to the screen
+	
+	;we will create rep movsb but we will check if its outside wall or inside wall
+@@rep_movsb:
+	mov al, [ds:si]
+	cmp al, 3fh ; outside wall 
+	je @@out_wall
+	
+	cmp al, 9h; inside wall
+	je @@in_wall
+	jmp @@putcolor
+	
+@@out_wall:
+	mov al, [OutSideColor]
+	jmp @@putcolor
+	
+@@in_wall:
+	mov al, [InsideColor]
+	
+@@putcolor:
+	mov [es:di], al
+	inc si
+	inc di
+	loop @@rep_movsb
 	
 	pop dx
 	pop cx
@@ -3359,12 +3386,12 @@ proc putMatrixInScreen
 	
 	mov cx, dx
 	
-	@@draw_line:	; Copy line to the screen
+@@draw_line:	; Copy line to the screen
 	mov al, [byte ds:si]
 	cmp al, 1
-	je @@end ; if it is equal to minus one we need to skip it
+	je @@end ; if it is equal to one we need to skip it
 	mov [byte es:di], al
-	@@end:
+@@end:
 	inc si
 	inc di
 	loop @@draw_line
