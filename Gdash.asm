@@ -134,19 +134,40 @@ DATASEG
 	CurentLevel db ? ; will be randomized when a level has ended
 	
 	; -- drawing using matrix --
+	;each frame of cube
+	matrix_cube   db 18*18 dup (?)
+	matrix_cube5  db 20*20 dup (?)
+	matrix_cube10 db 21*21 dup (?)
+	matrix_cube15 db 22*22 dup (?)
+	matrix_cube20 db 23*23 dup (?)
+	matrix_cube25 db 24*24 dup (?)
+	matrix_cube30 db 24*24 dup (?)
+	matrix_cube35 db 25*25 dup (?)
+	matrix_cube40 db 25*25 dup (?)
+	matrix_cube45 db 25*25 dup (?)
+	matrix_cube50 db 25*25 dup (?)
+	matrix_cube55 db 25*25 dup (?)
+	matrix_cube60 db 24*24 dup (?)
+	matrix_cube65 db 24*24 dup (?)
+	matrix_cube70 db 23*23 dup (?)
+	matrix_cube75 db 22*22 dup (?)
+	matrix_cube80 db 21*21 dup (?)
+	matrix_cube85 db 19*19 dup (?)
 	
-	;erasing cube
+	offset_matrix dw ?
+	
+	;erase cube
 	matrix_erase_cube db 25*25 dup (?) ; max sizes of main cube
 			
 	; - triangle block -
-	matrix_triangle db  -2,  -2,   -2,  -2,  -2,  -2,  -2,  -2,0ffh,0ffh,-2,  -2,   -2,  -2,  -2,  -2,    -2,-2
-					db  -2,  -2,   -2,  -2,  -2,  -2,  -2,0ffh,0,0,0ffh,-2,   -2,  -2,  -2,  -2,    -2,-2
-					db  -2,  -2,   -2,  -2,  -2,  -2,0ffh,0,  0,  0,  0,0ffh, -2,  -2,  -2,  -2,    -2,-2
-					db  -2,  -2,   -2,  -2,  -2,0ffh, 0,  0,  0,  0,  0,  0,0ffh,-2,  -2, -2,-2,-2
-					db  -2,  -2,   -2,  -2,0ffh,  0,  0,  0,  0,  0,  0,  0, 0,0ffh,-2,  -2, -2,-2
-					db   -2,  -2,  -2,0ffh,0, 0,  0,  0,  0,  0,  0,  0,  0,  0,0ffh,-2,  -2, -2
-					db   -2,  -2,0ffh,0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,0ffh, -2, -2
-					db   -2,0ffh, 0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,0ffh, -2
+	matrix_triangle db  1,  1,   1,  1,  1,  1,  1,  1,0ffh,0ffh,1,  1,   1,  1,  1,  1,    1,1
+					db  1,  1,   1,  1,  1,  1,  1,0ffh,0,0,0ffh,1,   1,  1,  1,  1,    1,1
+					db  1,  1,   1,  1,  1,  1,0ffh,0,  0,  0,  0,0ffh, 1,  1,  1,  1,    1,1
+					db  1,  1,   1,  1,  1,0ffh, 0,  0,  0,  0,  0,  0,0ffh,1,  1, 1,1,1
+					db  1,  1,   1,  1,0ffh,  0,  0,  0,  0,  0,  0,  0, 0,0ffh,1,  1, 1,1
+					db   1,  1,  1,0ffh,0, 0,  0,  0,  0,  0,  0,  0,  0,  0,0ffh,1,  1, 1
+					db   1,  1,0ffh,0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,0ffh, 1, 1
+					db   1,0ffh, 0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,0ffh, 1
 					db 0ffh,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,0ffh
 	
 	;erasing the triangle
@@ -231,6 +252,7 @@ DATASEG
 	FileName_End db 'end.bmp', 0
 	
 	;cube rotation frames
+	;we will only open them ones to transfer to matrix
 	;every number is the angle of the cube
 	FileName_cube   db 'cube.bmp'  , 0 ; angle 90
 	FileName_cube5  db 'cube5.bmp' , 0
@@ -267,7 +289,6 @@ start:
 	mov ds, ax
 ; --------------------------
 ; Your code here
-
 call SettingsGame
 	
 start_over:
@@ -287,8 +308,10 @@ main_loop:
 end_game:
 	call EndGame
 	
-	cmp [bool_start_over], 1 ; if the player selected yes
+	cmp [bool_start_over], 1
 	je start_over
+	
+	call Terminate
 	
 ; --------------------------
 
@@ -302,6 +325,9 @@ proc SettingsGame
 	call SetGraphics ; sets to graphics mode
 	
 	call SetMouseLimits ; set mouse limits of screen
+	
+	call Transfer_bmp_matrix ; transfer all frames into matrix
+	
 	ret
 endp SettingsGame
 
@@ -350,8 +376,6 @@ proc EndGame
 	mov ah, 3eh
 	mov bx, [FileHandleScores]
 	int 21h
-	
-	call Terminate
 	
 	ret
 endp EndGame
@@ -1151,8 +1175,8 @@ proc DrawCube
 	
 	;pick size
 	;picks a bmp by the seconds of the cube in the air
-	call Pick_bmp_by_height
-	push dx ; save dx after we save the background
+	call Pick_matrix_by_height
+	push bx ; save dx after we save the background
 	
 	;di = Ypos * 320 + Xpos (place on screen)
 	
@@ -1169,15 +1193,10 @@ proc DrawCube
 	
 	call Copy_Background_Cube ; we will copy the background firstly
 	
-	pop dx
+	pop bx
 	;for printing bmp we need - Xpos, Ypos, Height, Width - Through stack
-	push Xpos_Cube
-	dec [Ypos]
-	push [Ypos]
-	inc [Ypos]
-	push [CurrentSize]
-	push [CurrentSize]
-	call DrawPictureBmp
+	mov [matrix], bx
+	call putMatrixInScreen
 	;print
 	
 	popa
@@ -1186,7 +1205,7 @@ endp DrawCube
 
 ;for rotation - we check the height and then pick the right frame for it
 ;returns in dx and offset of the file we want to print
-proc Pick_bmp_by_height
+proc Pick_matrix_by_height
 	
 	cmp [timeInAir], 0 ; if timer is zero we need to print the 90 degrees even if not on ground
 	je @@90_deg
@@ -1197,7 +1216,7 @@ proc Pick_bmp_by_height
 @@90_deg:
 	mov [timeInAir], 0
 	mov [CurrentSize], 18
-	mov dx, offset FileName_cube
+	mov bx, offset matrix_cube
 	jmp @@print
 
 @@in_air:
@@ -1254,88 +1273,88 @@ proc Pick_bmp_by_height
 	jmp @@85_deg ; if it got here it got to be 17
 	
 @@5_deg:
-	mov [CurrentSize], 20 ; the sizes of the image
-	mov dx, offset FileName_cube5
+	mov [CurrentSize], 19 ; the sizes of the image
+	mov bx, offset matrix_cube85
 	jmp @@print
 	
 @@10_deg:
 	mov [CurrentSize], 21
-	mov dx, offset FileName_cube10
+	mov bx, offset matrix_cube80
 	jmp @@print
 	
 @@15_deg:
 	mov [CurrentSize], 22
-	mov dx, offset FileName_cube15
+	mov bx, offset matrix_cube75
 	jmp @@print
 	
 @@20_deg:
 	mov [CurrentSize], 23
-	mov dx, offset FileName_cube20
+	mov bx, offset matrix_cube70
 	jmp @@print
 	
 @@25_deg:
 	mov [CurrentSize], 24
-	mov dx, offset FileName_cube25
+	mov bx, offset matrix_cube65
 	jmp @@print
 	
 @@30_deg:
 	mov [CurrentSize], 24
-	mov dx, offset FileName_cube30
+	mov bx, offset matrix_cube60
 	jmp @@print
 	
 @@35_deg:
 	mov [CurrentSize], 25
-	mov dx, offset FileName_cube35
+	mov bx, offset matrix_cube55
 	jmp @@print
 	
 @@40_deg:
 	mov [CurrentSize], 25
-	mov dx, offset FileName_cube40
+	mov bx, offset matrix_cube50
 	jmp @@print
 	
 @@45_deg:
 	mov [CurrentSize], 25
-	mov dx, offset FileName_cube45
+	mov bx, offset matrix_cube45
 	jmp @@print
 	
 @@50_deg:
 	mov [CurrentSize], 25
-	mov dx, offset FileName_cube50
+	mov bx, offset matrix_cube40
 	jmp @@print	
 	
 @@55_deg:
 	mov [CurrentSize], 25
-	mov dx, offset FileName_cube55
+	mov bx, offset matrix_cube35
 	jmp @@print	
 	
 @@60_deg:
 	mov [CurrentSize], 24
-	mov dx, offset FileName_cube60
+	mov bx, offset matrix_cube30
 	jmp @@print	
 	
 @@65_deg:
 	mov [CurrentSize], 24
-	mov dx, offset FileName_cube65
+	mov bx, offset matrix_cube25
 	jmp @@print
 	
 @@70_deg:
 	mov [CurrentSize], 23
-	mov dx, offset FileName_cube70
+	mov bx, offset matrix_cube20
 	jmp @@print
 	
 @@75_deg:
 	mov [CurrentSize], 22
-	mov dx, offset FileName_cube75
+	mov bx, offset matrix_cube15
 	jmp @@print	
 	
 @@80_deg:
 	mov [CurrentSize], 21
-	mov dx, offset FileName_cube80
+	mov bx, offset matrix_cube10
 	jmp @@print
 	
 @@85_deg:
-	mov [CurrentSize], 19
-	mov dx, offset FileName_cube85
+	mov [CurrentSize], 20
+	mov bx, offset matrix_cube5
 
 
 @@print:
@@ -1347,7 +1366,7 @@ proc Pick_bmp_by_height
 	
 @@end:
 	ret
-endp Pick_bmp_by_height
+endp Pick_matrix_by_height
 
 ;we will draw the saved background on the cube to erase it
 proc Erase_Cube
@@ -2798,6 +2817,138 @@ proc Erase_All
 	ret
 endp Erase_All
 
+;will take all the frames of rotation and turn them into matrix
+proc Transfer_bmp_matrix
+	;90 degrees
+	mov [CurrentSize], 18
+	mov bx, offset matrix_cube
+	mov [offset_matrix], bx
+	mov dx, offset FileName_cube
+	call CopyBmp
+	
+	;5 degrees
+	mov [CurrentSize], 20
+	mov bx, offset matrix_cube5
+	mov [offset_matrix], bx
+	mov dx, offset FileName_cube5
+	call CopyBmp
+		
+	;10 degrees
+	mov [CurrentSize], 21
+	mov bx, offset matrix_cube10
+	mov [offset_matrix], bx
+	mov dx, offset FileName_cube10
+	call CopyBmp
+	
+	;15 degrees
+	mov [CurrentSize], 22
+	mov bx, offset matrix_cube15
+	mov [offset_matrix], bx
+	mov dx, offset FileName_cube15
+	call CopyBmp
+	
+	;20 degrees
+	mov [CurrentSize], 23
+	mov bx, offset matrix_cube20
+	mov [offset_matrix], bx
+	mov dx, offset FileName_cube20
+	call CopyBmp
+	
+	;25 degrees
+	mov [CurrentSize], 24
+	mov bx, offset matrix_cube25
+	mov [offset_matrix], bx
+	mov dx, offset FileName_cube25
+	call CopyBmp
+	
+	;30 degrees
+	mov [CurrentSize], 24
+	mov bx, offset matrix_cube30
+	mov [offset_matrix], bx
+	mov dx, offset FileName_cube30
+	call CopyBmp
+	
+	;35 degrees
+	mov [CurrentSize], 25
+	mov bx, offset matrix_cube35
+	mov [offset_matrix], bx
+	mov dx, offset FileName_cube35
+	call CopyBmp
+	
+	;40 degrees
+	mov [CurrentSize], 25
+	mov bx, offset matrix_cube40
+	mov [offset_matrix], bx
+	mov dx, offset FileName_cube40
+	call CopyBmp
+	
+	;45 degrees
+	mov [CurrentSize], 25
+	mov bx, offset matrix_cube45
+	mov [offset_matrix], bx
+	mov dx, offset FileName_cube45
+	call CopyBmp
+	
+	;50 degrees
+	mov [CurrentSize], 25
+	mov bx, offset matrix_cube50
+	mov [offset_matrix], bx
+	mov dx, offset FileName_cube50
+	call CopyBmp
+	
+	;55 degrees
+	mov [CurrentSize], 25
+	mov bx, offset matrix_cube55
+	mov [offset_matrix], bx
+	mov dx, offset FileName_cube55
+	call CopyBmp
+	
+	;60 degrees
+	mov [CurrentSize], 24
+	mov bx, offset matrix_cube60
+	mov [offset_matrix], bx
+	mov dx, offset FileName_cube60
+	call CopyBmp
+	
+	;65 degrees
+	mov [CurrentSize], 24
+	mov bx, offset matrix_cube65
+	mov [offset_matrix], bx
+	mov dx, offset FileName_cube65
+	call CopyBmp
+	
+	;70 degrees
+	mov [CurrentSize], 23
+	mov bx, offset matrix_cube70
+	mov [offset_matrix], bx
+	mov dx, offset FileName_cube70
+	call CopyBmp
+	
+	;75 degrees
+	mov [CurrentSize], 22
+	mov bx, offset matrix_cube75
+	mov [offset_matrix], bx
+	mov dx, offset FileName_cube75
+	call CopyBmp
+	
+	;80 degrees
+	mov [CurrentSize], 21
+	mov bx, offset matrix_cube80
+	mov [offset_matrix], bx
+	mov dx, offset FileName_cube80
+	call CopyBmp
+	
+	;85 degrees
+	mov [CurrentSize], 19
+	mov bx, offset matrix_cube85
+	mov [offset_matrix], bx
+	mov dx, offset FileName_cube85
+	call CopyBmp
+	
+	mov [CurrentSize], 18
+	ret
+endp Transfer_bmp_matrix
+
 proc printAxDec  
 	   
        push bx
@@ -2863,6 +3014,29 @@ proc OpenShowBmp near
 @@ExitProc:
 	ret
 endp OpenShowBmp
+
+;for making it matrix
+proc CopyBmp near
+		 
+	call OpenBmpFile
+	cmp [ErrorFile],1
+	je @@ExitProc
+	
+	call ReadBmpHeader
+	
+	call ReadBmpPalette
+	
+	call CopyBmpPalette
+	
+
+	call MatrixBMP
+	
+	 
+	call CloseBmpFile
+
+@@ExitProc:
+	ret
+endp CopyBmp
 
 proc CloseBmpFile near
 	mov ah,3Eh
@@ -2956,14 +3130,13 @@ CopyNextColor:
 	ret
 endp CopyBmpPalette
 
- 
 proc ShowBMP 
 ; BMP graphics are saved upside-down.
 ; Read the graphic line by line (BmpRowSize lines in VGA format),
 ; displaying the lines from bottom to top.
 	push cx
 	
-	mov ax, 0A000h
+	mov ax, 0A000h ; the offset we want to transfer
 	mov es, ax
 	
 	mov cx,[BmpRowSize]
@@ -3027,7 +3200,58 @@ proc ShowBMP
 	ret
 endp ShowBMP 
 
+;we will change this proc because so the offset will be transfered through stack
+;this will be used for transfering the picture from bmp to matrix
+proc MatrixBMP 
+; BMP graphics are saved upside-down.
+; Read the graphic line by line (BmpRowSize lines in VGA format),
+; displaying the lines from bottom to top.
+	push cx
 	
+	mov ax, ds ; we will make es to ds and make di the offset of var we want to copy the picture to
+	mov es, ax
+	
+	mov cx,[CurrentSize]
+	
+ 
+	mov ax,[CurrentSize] ; row size must dived by 4 so if it less we must calculate the extra padding bytes
+	xor dx,dx
+	mov si,4
+	div si
+	cmp dx,0
+	mov bp,0
+	jz @@row_ok
+	mov bp,4
+	sub bp,dx
+
+@@row_ok:	
+	xor dx, dx
+	mov di, [offset_matrix]
+	
+@@NextLine:
+	push cx
+	push dx
+	 
+	; small Read one line
+	mov ah,3fh
+	mov cx,[CurrentSize]  
+	add cx,bp  ; extra  bytes to each row must be divided by 4
+	mov dx,offset ScrLine
+	int 21h
+	; Copy one line into video memory
+	cld ; Clear direction flag, for movsb
+	mov cx,[CurrentSize]  
+	mov si,offset ScrLine
+	rep movsb ; Copy line to the screen
+	
+	pop dx
+	pop cx
+	 
+	loop @@NextLine
+	
+	pop cx
+	ret 
+endp MatrixBMP 
 
 ; Read 54 bytes the Header
 proc PutBmpHeader	near					
@@ -3076,8 +3300,6 @@ proc DrawPictureBmp
 	jne @@cont 
 	jmp exitError
 @@cont:
-
-	
     jmp @@end
 	
 exitError:
@@ -3139,7 +3361,7 @@ proc putMatrixInScreen
 	
 	@@draw_line:	; Copy line to the screen
 	mov al, [byte ds:si]
-	cmp al, -2
+	cmp al, 1
 	je @@end ; if it is equal to minus one we need to skip it
 	mov [byte es:di], al
 	@@end:
