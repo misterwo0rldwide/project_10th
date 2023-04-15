@@ -62,6 +62,7 @@ DATASEG
 	;these colors will be picked by the player in the start screen
 	OutSideColor db 3fh
 	InsideColor db 9h
+
 	
 	;name
 	NamePlayer db 14, 16 dup (?), '$' ; name of the player which is inserted before starting
@@ -330,9 +331,6 @@ proc SettingsGame
 	call SetGraphics ; sets to graphics mode
 	
 	call SetMouseLimits ; set mouse limits of screen
-	
-	call Transfer_bmp_matrix ; transfer all frames into matrix
-	
 	ret
 endp SettingsGame
 
@@ -344,6 +342,7 @@ proc StartingGame
 	mov [bool_start_over], 0 ; resetting this bool
 	
 	call MouseShow ; for loading screens
+	call Transfer_bmp_matrix ; transfer all frames into matrix after picking the colors
 	
 	;when the player got here the game has started
 	
@@ -575,10 +574,17 @@ endp SetMouseLimits
 proc MouseShow
 	pusha
 	
-	call DrawStartScreen ; draw the start screen
+@@main_screen:
+
+	mov ax, 2 ; hide mouse
+	int 33h
 	
+	call DrawStartScreen ; draw the start screen
 
 	mov ax, 1 ; show mouse
+	int 33h
+	
+	mov ax, 1
 	int 33h
 
 @@wait_for_left:
@@ -622,7 +628,7 @@ proc MouseShow
 	ja @@check3
 	
 	call Guiding_Screen
-	jmp @@end
+	jmp @@main_screen
 	
 @@check3:
 	
@@ -640,7 +646,7 @@ proc MouseShow
 	ja @@wait_for_left
 	
 	call Settings_Screen
-	
+	jmp @@main_screen
 	
 @@end:
 	popa
@@ -680,11 +686,6 @@ proc Guiding_Screen
 	
 	cmp dx, 46
 	ja @@check_click
-	
-	;if it got here it was pressed
-	mov ax, 2
-	int 33h
-	call MouseShow
 
 	popa
 	ret
@@ -710,24 +711,110 @@ proc Settings_Screen
 	jne @@check_click
 	shr cx, 1
 	
+	cmp dx, 143
+	ja @@check_speed_game
+	
 	;check if go back
 	cmp cx, 21
-	jb @@check_click
+	jb @@check_outer_color
 	
 	cmp cx, 63
-	ja @@check_click
+	ja @@check_outer_color
 	
 	cmp dx, 27
-	jb @@check_click
+	jb @@check_outer_color
 	
 	cmp dx, 46
+	ja @@check_outer_color
+	
+	jmp @@end ; finish the page
+	
+@@check_outer_color:
+	cmp cx, 45
+	jb @@check_inner_color
+	
+	cmp cx, 275
+	ja @@check_inner_color
+	
+	cmp dx, 60
+	jb @@check_click ; if the y is below then it cant be anything
+	
+	cmp dx, 80
+	ja @@check_inner_color
+	
+	;if it got here one of the outer colors were pressed
+	;we will check what color was pressed
+	dec dx
+    mov ah, 0dh ; check color
+    mov bh, 0
+    int 10h
+	inc dx
+	
+	cmp al, 0beh ; if it the green color between blocks
+	je @@check_click
+	
+	;if it got here it means one of the colors was pressed so then we will just pass it to the out color
+	mov [OutSideColor], al
+	jmp @@check_click
+	
+@@check_inner_color:
+	
+	cmp dx, 120
+	ja @@check_speed_game
+	
+	dec dx
+	mov ah, 0dh ; check color
+    mov bh, 0
+    int 10h
+	inc dx
+	
+	cmp al, 0beh ; if it the green color between blocks
+	je @@check_click
+	
+	;if it got here it means one of the colors was pressed so then we will just pass it to the out color
+	mov [InsideColor], al
+	jmp @@check_click
+
+@@check_speed_game:
+	
+	cmp dx, 145
+	jb @@check_click
+	
+	cmp dx, 159
 	ja @@check_click
 	
-	;if it got here it was pressed
-	mov ax, 2
-	int 33h
-	call MouseShow
+	;if not in those ranges it means we are not on the blocks
 	
+	;slow button
+	
+	cmp cx, 32
+	jb @@check_click
+	
+	cmp cx, 93
+	ja @@normal
+	
+	; if it got here we pressed on the slow button
+	
+	mov [delay], 60 ; slow speed
+	jmp @@check_click
+	
+@@normal:
+
+	;normal speed
+	
+	cmp cx, 205
+	ja @@fast
+	
+	;dont touch the delay becuase we are on the normal speed
+	jmp @@check_click
+	
+@@fast:
+	cmp cx, 288
+	ja @@check_click
+	
+	mov [delay], 50
+	jmp @@check_click
+@@end:
 	popa
 	ret
 endp Settings_Screen
@@ -967,6 +1054,9 @@ proc Reset
 	mov [Ypos_Points], -1
 	
 	mov [delay], 55
+	
+	mov [OutSideColor], 3fh
+	mov [InsideColor], 9h
 	;hide mouse
 	mov ax, 2
 	int 33h
@@ -1837,8 +1927,8 @@ proc Key_Check
 	jmp @@end
 	
 @@jump:
-	cmp [can_jump], 1
-	jne @@end
+	cmp [can_jump], 0
+	je @@end ; if the bool 'can_jump' equals to one it means we are in the air so if mid air another jump was asked we wont confirm it
 	mov [Is_Going_up], 1
 
 @@end:	
@@ -2468,7 +2558,7 @@ proc PickLevel
 	;now al has the number of the level
 	mov [CurentLevel], al
 	
-	@@put_level:
+@@put_level:
 	mov al, [CurentLevel]
 	
 	cmp al, 1
