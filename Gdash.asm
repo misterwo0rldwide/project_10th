@@ -1368,43 +1368,43 @@ proc Pick_matrix_by_height
 	jmp @@85_deg ; if it got here it got to be 17
 	
 @@5_deg:
-	mov [CurrentSize], 19 ; the sizes of the image
-	mov bx, offset matrix_cube85
+	mov [CurrentSize], 20 ; the sizes of the image
+	mov bx, offset matrix_cube5
 	jmp @@print
 	
 @@10_deg:
 	mov [CurrentSize], 21
-	mov bx, offset matrix_cube80
+	mov bx, offset matrix_cube10
 	jmp @@print
 	
 @@15_deg:
 	mov [CurrentSize], 22
-	mov bx, offset matrix_cube75
+	mov bx, offset matrix_cube15
 	jmp @@print
 	
 @@20_deg:
 	mov [CurrentSize], 23
-	mov bx, offset matrix_cube70
+	mov bx, offset matrix_cube20
 	jmp @@print
 	
 @@25_deg:
 	mov [CurrentSize], 24
-	mov bx, offset matrix_cube65
+	mov bx, offset matrix_cube25
 	jmp @@print
 	
 @@30_deg:
 	mov [CurrentSize], 24
-	mov bx, offset matrix_cube60
+	mov bx, offset matrix_cube30
 	jmp @@print
 	
 @@35_deg:
 	mov [CurrentSize], 25
-	mov bx, offset matrix_cube55
+	mov bx, offset matrix_cube35
 	jmp @@print
 	
 @@40_deg:
 	mov [CurrentSize], 25
-	mov bx, offset matrix_cube50
+	mov bx, offset matrix_cube40
 	jmp @@print
 	
 @@45_deg:
@@ -1414,42 +1414,42 @@ proc Pick_matrix_by_height
 	
 @@50_deg:
 	mov [CurrentSize], 25
-	mov bx, offset matrix_cube40
+	mov bx, offset matrix_cube50
 	jmp @@print	
 	
 @@55_deg:
 	mov [CurrentSize], 25
-	mov bx, offset matrix_cube35
+	mov bx, offset matrix_cube55
 	jmp @@print	
 	
 @@60_deg:
 	mov [CurrentSize], 24
-	mov bx, offset matrix_cube30
+	mov bx, offset matrix_cube60
 	jmp @@print	
 	
 @@65_deg:
 	mov [CurrentSize], 24
-	mov bx, offset matrix_cube25
+	mov bx, offset matrix_cube65
 	jmp @@print
 	
 @@70_deg:
 	mov [CurrentSize], 23
-	mov bx, offset matrix_cube20
+	mov bx, offset matrix_cube70
 	jmp @@print
 	
 @@75_deg:
 	mov [CurrentSize], 22
-	mov bx, offset matrix_cube15
+	mov bx, offset matrix_cube75
 	jmp @@print	
 	
 @@80_deg:
 	mov [CurrentSize], 21
-	mov bx, offset matrix_cube10
+	mov bx, offset matrix_cube80
 	jmp @@print
 	
 @@85_deg:
-	mov [CurrentSize], 20
-	mov bx, offset matrix_cube5
+	mov [CurrentSize], 19
+	mov bx, offset matrix_cube85
 
 
 @@print:
@@ -3322,10 +3322,20 @@ proc MatrixBMP
 @@row_ok:	
 	xor dx, dx
 	mov di, [offset_matrix]
+	mov ax, [CurrentSize]
+	mul ax
+	add di, ax
+	add di, [CurrentSize]
 	
 @@NextLine:
 	push cx
 	push dx
+	
+	;fix matrix becuasewe draw it upside down
+	;move di to last line then up it each loop cycle
+	
+	sub di, [CurrentSize]
+	sub di, [CurrentSize]
 	 
 	; small Read one line
 	mov ah,3fh
