@@ -45,6 +45,9 @@ Xpos_Cube = 50
 DATASEG
 ; --------------------------
 ; Your variables here
+	;Async bool
+	Async db 0
+
 	;random
 	RndCurrentPos dw start ; random label
 
@@ -303,7 +306,6 @@ start_over:
 	
 main_loop:
 	call Key_Check
-	
 	cmp [IsExit], 1
 	je end_game
 	
@@ -331,6 +333,8 @@ proc SettingsGame
 	call SetGraphics ; sets to graphics mode
 	
 	call SetMouseLimits ; set mouse limits of screen
+	
+	call AsyncMouse ; set async mouse
 	ret
 endp SettingsGame
 
@@ -351,6 +355,9 @@ proc StartingGame
 	
 	push 500 ; delay before starting the game
 	call LoopDelay
+	
+	mov [Async], 1
+	
 	ret
 endp StartingGame
 
@@ -372,6 +379,9 @@ endp GameLoop
 ;then print the end screen
 ;closes the file and gets dos box the control back
 proc EndGame
+	
+	mov [Async], 0
+	
 	call ChangeScoreHighest ; handles the score using the file
 	call End_Screen ; end screen printing and writing and mouse
 	
@@ -1057,6 +1067,8 @@ proc Reset
 	
 	mov [OutSideColor], 3fh
 	mov [InsideColor], 9h
+	
+	mov [Async], 0
 	;hide mouse
 	mov ax, 2
 	int 33h
@@ -1897,27 +1909,17 @@ endp Erase_point
 ;================================================
 proc Key_Check
 	pusha
+	push ds
 	
-	;checl if the mouse was pressed
-	mov ax, 3
-	int 33h
+	in al, 60h
 	
-	cmp bx, 1 ; if the left button then go to jump
-	je @@jump
-
-	mov ah, 1h
-	int 16h
-	
-	jz @@end ; in case not pressed we check if we are jumping
-	
-	
-	mov ah, 0
-	int 16h
-
-	cmp ah, 1h
+	cmp al, 1h
 	je @@exit_game
 	
-	cmp ah, 39h ; space
+	cmp al, 39h ; space
+	je @@jump
+	
+	cmp al, 0c8h ; up arrow
 	je @@jump
 	
 	jmp @@end
@@ -1931,7 +1933,12 @@ proc Key_Check
 	je @@end ; if the bool 'can_jump' equals to one it means we are in the air so if mid air another jump was asked we wont confirm it
 	mov [Is_Going_up], 1
 
-@@end:	
+@@end:
+	push ax       
+	mov al,20h
+	out 20h,al
+	pop ax
+	pop ds
 	popa
 	ret
 endp Key_Check
@@ -2505,6 +2512,10 @@ endp Check_Where_Cube
 proc Cube_Move
 	pusha
 	
+	call Check_Hit
+	cmp [IsExit], 1
+	je @@end
+	
 	cmp [Is_Going_up], 1 ; if we go up then continue ascending
 	je @@jump
 	
@@ -2553,7 +2564,7 @@ proc PickLevel
 	je @@put_level
 	
 	mov bl, 1 ; min level
-	mov bh, 6 ; max numbers of levels
+	mov bh, 7 ; max numbers of levels
 	call RandomByCs
 	;now al has the number of the level
 	mov [CurentLevel], al
@@ -2579,6 +2590,9 @@ proc PickLevel
 	cmp al, 6
 	je @@level_six
 	
+	cmp al, 7
+	je @@level_seven
+	
 @@level_one:
 	call Level_One
 	jmp @@end
@@ -2601,6 +2615,10 @@ proc PickLevel
 	
 @@level_six:
 	call Level_Six
+	jmp @@end
+	
+@@level_seven:
+	call Level_Seven
 	jmp @@end
 	
 	
@@ -2896,6 +2914,51 @@ proc Level_Six
 	ret
 endp Level_Six
 
+;
+;
+;            █
+;   █        █
+;   █  ▲▲ █  █
+proc Level_Seven
+	cmp [Objects_Placed], 1
+	je @@move_objects
+	
+	mov [Objects_Placed], 1
+	
+	mov [Xpos_Tower], 330 ; first tower
+	mov [Height_Tower], 2
+	mov [Xpos_Triangle], 380 ; first triangle
+	mov [Ypos_Triangle], 152
+	mov [Xpos_Triangle + 2], 400 ; second triangle
+	mov [Ypos_Triangle + 2], 152
+	mov [Xpos_Blocks], 455 ; first block
+	mov [Ypos_Blocks], 143
+	mov [Xpos_Tower + 2], 560
+	mov [Height_Tower + 2], 3
+	
+	call Draw_All
+	
+@@move_objects:
+	call Erase_All
+	
+	mov ax, 5
+	sub [Xpos_Tower], ax
+	sub [Xpos_Blocks], ax
+	sub [Xpos_Triangle], ax
+	sub [Xpos_Triangle + 2], ax
+	sub [Xpos_Tower + 2], ax
+	cmp [Xpos_Tower + 2], 6400
+	ja @@end_level
+	
+	
+	call Draw_All
+	jmp @@end
+@@end_level:
+	mov [Objects_Placed], 0
+@@end:
+	ret
+endp Level_Seven
+
 proc Draw_All
 	call Draw_Tower
 	call Draw_Triangle
@@ -3043,6 +3106,36 @@ proc Transfer_bmp_matrix
 	mov [CurrentSize], 18
 	ret
 endp Transfer_bmp_matrix
+
+;we will set the mouse for left click to be Async for jumps to be called without any delay
+proc AsyncMouse
+	pusha
+
+	push seg AsyncJump
+	push offset AsyncJump
+	pop dx
+	pop es
+	
+	mov ax, 0ch ; interrupt
+	mov cx, 2 ; left mouse click
+	
+	int 33h
+
+	popa
+	ret
+endp AsyncMouse
+
+proc AsyncJump far
+	cmp [Async], 0
+	je @@end
+
+	cmp [can_jump], 0
+	je @@end ; if the bool 'can_jump' equals to one it means we are in the air so if mid air another jump was asked we wont confirm it
+	mov [Is_Going_up], 1
+
+@@end:	
+	retf
+endp AsyncJump
 
 proc printAxDec  
 	   
@@ -3295,7 +3388,7 @@ proc ShowBMP
 	ret
 endp ShowBMP 
 
-;we will change this proc because so the offset will be transfered through stack
+
 ;this will be used for transfering the picture from bmp to matrix
 proc MatrixBMP 
 ; BMP graphics are saved upside-down.
