@@ -1,6 +1,6 @@
+.486
 IDEAL
 MODEL small
-p386
 
 STACK 100h
 
@@ -45,8 +45,6 @@ Xpos_Cube = 50
 DATASEG
 ; --------------------------
 ; Your variables here
-	;Async bool
-	Async db 0
 
 	;random
 	RndCurrentPos dw start ; random label
@@ -298,6 +296,7 @@ start:
 	mov ds, ax
 ; --------------------------
 ; Your code here
+
 call SettingsGame
 	
 start_over:
@@ -333,8 +332,6 @@ proc SettingsGame
 	call SetGraphics ; sets to graphics mode
 	
 	call SetMouseLimits ; set mouse limits of screen
-	
-	call AsyncMouse ; set async mouse
 	ret
 endp SettingsGame
 
@@ -355,8 +352,6 @@ proc StartingGame
 	
 	push 500 ; delay before starting the game
 	call LoopDelay
-	
-	mov [Async], 1
 	
 	ret
 endp StartingGame
@@ -379,8 +374,6 @@ endp GameLoop
 ;then print the end screen
 ;closes the file and gets dos box the control back
 proc EndGame
-	
-	mov [Async], 0
 	
 	call ChangeScoreHighest ; handles the score using the file
 	call End_Screen ; end screen printing and writing and mouse
@@ -1068,7 +1061,6 @@ proc Reset
 	mov [OutSideColor], 3fh
 	mov [InsideColor], 9h
 	
-	mov [Async], 0
 	;hide mouse
 	mov ax, 2
 	int 33h
@@ -1911,15 +1903,18 @@ proc Key_Check
 	pusha
 	push ds
 	
+	mov ax, 3
+	int 33h
+	
+	cmp bx, 1 ; check if left mouse clicked
+	je @@jump
+	
 	in al, 60h
 	
 	cmp al, 1h
 	je @@exit_game
 	
 	cmp al, 39h ; space
-	je @@jump
-	
-	cmp al, 0c8h ; up arrow
 	je @@jump
 	
 	jmp @@end
@@ -1934,9 +1929,9 @@ proc Key_Check
 	mov [Is_Going_up], 1
 
 @@end:
-	push ax       
-	mov al,20h
-	out 20h,al
+	push ax
+	mov al,00h
+	out 60h,al
 	pop ax
 	pop ds
 	popa
@@ -3106,36 +3101,6 @@ proc Transfer_bmp_matrix
 	mov [CurrentSize], 18
 	ret
 endp Transfer_bmp_matrix
-
-;we will set the mouse for left click to be Async for jumps to be called without any delay
-proc AsyncMouse
-	pusha
-
-	push seg AsyncJump
-	push offset AsyncJump
-	pop dx
-	pop es
-	
-	mov ax, 0ch ; interrupt
-	mov cx, 2 ; left mouse click
-	
-	int 33h
-
-	popa
-	ret
-endp AsyncMouse
-
-proc AsyncJump far
-	cmp [Async], 0
-	je @@end
-
-	cmp [can_jump], 0
-	je @@end ; if the bool 'can_jump' equals to one it means we are in the air so if mid air another jump was asked we wont confirm it
-	mov [Is_Going_up], 1
-
-@@end:	
-	retf
-endp AsyncJump
 
 proc printAxDec  
 	   
