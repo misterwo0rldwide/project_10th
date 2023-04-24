@@ -4,8 +4,8 @@ MODEL small
 
 STACK 100h
 
-;For playing this game set DOSBOX to 7000 cycles
-;cycles=7000
+;For playing this game set DOSBOX to 10000 cycles
+;cycles=10000
 
 
 ;macros
@@ -57,7 +57,7 @@ DATASEG
 	; -- player --
 	
 	;speed
-	delay dw 55 ; delay between each frame
+	delay dw 75 ; delay between each frame
 	
 	;picked color
 	;these colors will be picked by the player in the start screen
@@ -296,6 +296,7 @@ start:
 	mov ds, ax
 ; --------------------------
 ; Your code here
+mov bx, offset delay
 
 call SettingsGame
 	
@@ -798,7 +799,7 @@ proc Settings_Screen
 	
 	; if it got here we pressed on the slow button
 	
-	mov [delay], 60 ; slow speed
+	mov [delay], 80 ; slow speed
 	jmp @@check_click
 	
 @@normal:
@@ -808,14 +809,14 @@ proc Settings_Screen
 	cmp cx, 205
 	ja @@fast
 	
-	;dont touch the delay becuase we are on the normal speed
+	mov [delay], 75
 	jmp @@check_click
 	
 @@fast:
 	cmp cx, 288
 	ja @@check_click
 	
-	mov [delay], 50
+	mov [delay], 70
 	jmp @@check_click
 @@end:
 	popa
@@ -1056,7 +1057,7 @@ proc Reset
 	mov [Xpos_Points], -1
 	mov [Ypos_Points], -1
 	
-	mov [delay], 55
+	mov [delay], 75
 	
 	mov [OutSideColor], 3fh
 	mov [InsideColor], 9h
@@ -1930,8 +1931,8 @@ proc Key_Check
 
 @@end:
 	push ax
-	mov al,00h
-	out 60h,al
+	mov al,20h
+	out 20h,al
 	pop ax
 	pop ds
 	popa
