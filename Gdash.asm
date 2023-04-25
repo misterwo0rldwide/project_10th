@@ -220,7 +220,7 @@ DATASEG
 	matrix_erase_point db 11*6 dup (?) ; one bonus point
 	
 	;erase tower
-	matrix_erase_tower db 18*18*5 dup (?), 18*18*5 dup (?), 18*18*5 dup (?), 18*18*5 dup (?), 18*18*5 dup (?) ; five towers
+	matrix_erase_tower db 18*18*5 dup (?), 18*18*5 dup (?), 18*18*5 dup (?) ; three towers
 
 	
 	
@@ -1715,7 +1715,7 @@ proc Draw_Tower
 	
 	xor si, si
 	xor bp, bp
-	mov cx, 5
+	mov cx, 3
 @@drawAllTowers:
 	push cx
 	cmp [Xpos_Tower + si], 301
@@ -2560,7 +2560,7 @@ proc PickLevel
 	je @@put_level
 	
 	mov bl, 1 ; min level
-	mov bh, 7 ; max numbers of levels
+	mov bh, 8 ; max numbers of levels
 	call RandomByCs
 	;now al has the number of the level
 	mov [CurentLevel], al
@@ -2589,6 +2589,9 @@ proc PickLevel
 	cmp al, 7
 	je @@level_seven
 	
+	cmp al, 8
+	je @@level_eight
+	
 @@level_one:
 	call Level_One
 	jmp @@end
@@ -2615,6 +2618,10 @@ proc PickLevel
 	
 @@level_seven:
 	call Level_Seven
+	jmp @@end
+	
+@@level_eight:
+	call Level_Eight
 	jmp @@end
 	
 	
@@ -2954,6 +2961,45 @@ proc Level_Seven
 @@end:
 	ret
 endp Level_Seven
+
+;
+;
+;
+;     █       █
+;     █   •   █
+proc Level_Eight
+	cmp [Objects_Placed], 1
+	je @@move_objects
+	
+	mov [Objects_Placed], 1
+	
+	mov [Xpos_Tower], 320 ; first tower
+	mov [Height_Tower], 2
+	mov [Xpos_Points], 380 ; first bonus point
+	mov [Ypos_Points], 145
+	mov [Xpos_Tower + 2], 440 ; second tower
+	mov [Height_Tower + 2], 2
+	
+	call Draw_All
+	
+@@move_objects:
+	call Erase_All
+	
+	mov ax, 5
+	sub [Xpos_Tower], ax
+	sub [Xpos_Points], ax
+	sub [Xpos_Tower + 2], ax
+	cmp [Xpos_Tower + 2], 6400
+	ja @@end_level
+	
+	
+	call Draw_All
+	jmp @@end
+@@end_level:
+	mov [Objects_Placed], 0
+@@end:
+	ret
+endp Level_Eight
 
 proc Draw_All
 	call Draw_Tower
