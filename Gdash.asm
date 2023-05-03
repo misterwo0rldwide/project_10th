@@ -1,4 +1,4 @@
-.486
+.486 ; changing the version to enable features such as - pusha and popa
 IDEAL
 MODEL small
 
@@ -19,6 +19,7 @@ macro DRAW_FULL_BMP
 	call DrawPictureBmp
 endm DRAW_FULL_BMP
 
+; -- const variables --
 ;Cube
 Xpos_Cube = 50
 Cube_Max_Size = 25*25
@@ -46,7 +47,6 @@ Max_Bmp_Width = 320
 
 DATASEG
 ; --------------------------
-; Your variables here
 
 	;random
 	RndCurrentPos dw start ; random label
@@ -165,8 +165,6 @@ DATASEG
 	matrix_cube80 db 21*21 dup (?)
 	matrix_cube85 db 19*19 dup (?)
 	
-	offset_matrix dw ?
-	
 	;erase cube
 	matrix_erase_cube db Cube_Max_Size dup (?) ; max sizes of main cube
 			
@@ -223,9 +221,6 @@ DATASEG
 	; -- FILES --
 	
 	; background bmp picture var
-
-    OneBmpLine db Max_Bmp_Width dup (?)  ; One Color line read buffer
-   
     ScrLine db Max_Bmp_Width + 4 dup (?)  ; One Color line read buffer
 
 	;BMP File data
@@ -289,7 +284,6 @@ start:
 	mov ax, @data
 	mov ds, ax
 ; --------------------------
-mov bx, offset delay
 call SettingsGame
 	
 start_over:
@@ -308,14 +302,13 @@ main_loop:
 end_game:
 	call EndGame
 	
-	cmp [bool_start_over], 1
+	cmp [bool_start_over], 1 ; if the player decided to start the game again
 	je start_over
 ; --------------------------
 exit:
-
 	call clearkeyboardbuffer
 
-	mov ax,2	;returns the screen to text mode.
+	mov ax,2	;returns the screen to text mode
 	int 10h
 	
 	mov ax, 4c00h ; gets dos box the control
@@ -395,7 +388,6 @@ proc CalcScore
 	add ax, [seconds]
 
 	mov [FinalScore], ax
-
 
 	popa
 	ret
@@ -939,22 +931,14 @@ endp End_Screen
 proc Reset
 
 	mov [NamePlayer], 14
-	mov [NamePlayer + 1], ?
-	mov [NamePlayer + 2], ?
-	mov [NamePlayer + 3], ?
-	mov [NamePlayer + 4], ?
-	mov [NamePlayer + 5], ?
-	mov [NamePlayer + 6], ?
-	mov [NamePlayer + 7], ?
-	mov [NamePlayer + 8], ?
-	mov [NamePlayer + 9], ?
-	mov [NamePlayer + 10], ?
-	mov [NamePlayer + 11], ?
-	mov [NamePlayer + 12], ?
-	mov [NamePlayer + 13], ?
-	mov [NamePlayer + 14], ?
-	mov [NamePlayer + 15], ?
-	mov [NamePlayer + 16], '$'
+	xor si, si
+	inc si
+@@reset:
+	mov [NamePlayer + si], ?
+	inc si
+	cmp si, 16
+	jb @@reset
+	mov [NamePlayer + si], '$'
 
 	mov [bool_won], 0
 	
@@ -1004,48 +988,26 @@ proc Reset
 	
 	mov [bool_start_over], 1
 	
-	mov [Xpos_Blocks], Starting_Pos
-	mov [Xpos_Blocks + 1], Starting_Pos
-	mov [Xpos_Blocks + 2], Starting_Pos
-	mov [Xpos_Blocks + 3], Starting_Pos
-	mov [Xpos_Blocks + 4], Starting_Pos
-	mov [Ypos_Blocks], Starting_Pos
-	mov [Ypos_Blocks + 1], Starting_Pos
-	mov [Ypos_Blocks + 2], Starting_Pos
-	mov [Ypos_Blocks + 3], Starting_Pos
-	mov [Ypos_Blocks + 4], Starting_Pos
-	
-	
-	;Triangle
-	mov [Xpos_Triangle], Starting_Pos
-	mov [Xpos_Triangle + 1], Starting_Pos
-	mov [Xpos_Triangle + 2], Starting_Pos
-	mov [Xpos_Triangle + 3], Starting_Pos
-	mov [Xpos_Triangle + 4], Starting_Pos
-	mov [Ypos_Triangle], Starting_Pos
-	mov [Ypos_Triangle + 1], Starting_Pos
-	mov [Ypos_Triangle + 2], Starting_Pos
-	mov [Ypos_Triangle + 3], Starting_Pos
-	mov [Ypos_Triangle + 4], Starting_Pos
+	xor si, si
+@@reset_pos: ; reset the position of the blocks and triangles
+	mov [Xpos_Blocks + si], Starting_Pos
+	mov [Ypos_Blocks + si], Starting_Pos
+	mov [Xpos_Triangle + si], Starting_Pos
+	mov [Xpos_Triangle + si], Starting_Pos
+	inc si
+	cmp si, 5
+	jb @@reset_pos
 	
 	;Tower
-	mov [Xpos_Tower], Starting_Pos
-	mov [Xpos_Tower + 1], Starting_Pos
-	mov [Xpos_Tower + 2], Starting_Pos
-	mov [Xpos_Tower + 3], Starting_Pos
-	mov [Xpos_Tower + 4], Starting_Pos
-	
-	mov [Ypos_Tower], Starting_Pos
-	mov [Ypos_Tower + 1], Starting_Pos
-	mov [Ypos_Tower + 2], Starting_Pos
-	mov [Ypos_Tower + 3], Starting_Pos
-	mov [Ypos_Tower + 4], Starting_Pos
-	
-	mov [Height_Tower], Starting_Pos
-	mov [Height_Tower + 1], Starting_Pos
-	mov [Height_Tower + 2], Starting_Pos
-	mov [Height_Tower + 3], Starting_Pos
-	mov [Height_Tower + 4], Starting_Pos
+	xor si, si
+@@reset_Tower: ; reset the position of the towers
+	mov [Xpos_Tower + si], Starting_Pos
+	mov [Ypos_Tower + si], Starting_Pos
+	mov [Height_Tower + si], Starting_Pos
+	mov [Xpos_Triangle + si], Starting_Pos
+	inc si
+	cmp si, 3
+	jb @@reset_Tower
 	
 	;Bonus Points
 	mov [Xpos_Points], Starting_Pos
@@ -1248,8 +1210,8 @@ proc clearkeyboardbuffer
 	
 	push 0
 	pop es
-	mov [word es:041ah], 041eh
-	mov	[word es:041ch], 041eh ; Clears keyboard buffer
+	mov [word es:041ah], 0
+	mov	[word es:041ch], 0 ; Clears keyboard buffer
 	
 	pop	es
 	ret
@@ -1910,7 +1872,6 @@ endp Erase_point
 ;================================================
 proc Key_Check
 	pusha
-	push ds
 	
 	mov ax, 3
 	int 33h
@@ -1918,7 +1879,7 @@ proc Key_Check
 	cmp bx, 1 ; check if left mouse clicked
 	je @@jump
 	
-	in al, 60h
+	in al, 60h ; read the key port to AL
 	
 	cmp al, 1h ; ESC
 	je @@exit_game
@@ -1938,7 +1899,6 @@ proc Key_Check
 	mov [Is_Going_up], 1
 
 @@end:
-	pop ds
 	popa
 	ret
 endp Key_Check
@@ -1962,7 +1922,7 @@ proc Check_floor_Under
 	cmp al, 0ffh ; check if white
 	je @@floor
 	
-	cmp al, 0
+	cmp al, 0 ; check if black
 	je @@floor
 	
 	add cx, [CurrentSize]
@@ -1971,7 +1931,7 @@ proc Check_floor_Under
 	cmp al, 0ffh ; check if white
 	je @@floor
 	
-	cmp al, 0
+	cmp al, 0 ; check if black
 	je @@floor
 	
 	sub cx, 12
@@ -1979,7 +1939,7 @@ proc Check_floor_Under
 	cmp al, 0ffh ; check if white
 	je @@floor
 	
-	cmp al, 0
+	cmp al, 0 ; check if black
 	je @@floor
 	
 	
@@ -2491,7 +2451,7 @@ proc Check_Where_Cube
 	cmp al, 0 ; in the air - no floor
 	je @@falling
 	
-	mov [can_jump], 1
+	mov [can_jump], 1 ; if we have floor under we will sign that we can jump again
 	jmp @@end
 	
 @@falling:
@@ -2564,7 +2524,7 @@ proc PickLevel
 	je @@put_level
 	
 	mov bl, 1 ; min level
-	mov bh, 10 ; max numbers of levels
+	mov bh, 11 ; max numbers of levels
 	call RandomByCs
 	;now al has the number of the level
 	mov [CurentLevel], al
@@ -2601,6 +2561,9 @@ proc PickLevel
 	
 	cmp al, 10
 	je @@level_ten
+	
+	cmp al, 11
+	je @@level_eleven
 	
 @@level_one:
 	call Level_One
@@ -2640,6 +2603,10 @@ proc PickLevel
 	
 @@level_ten:
 	call Level_Ten
+	jmp @@end
+	
+@@level_eleven:
+	call Level_Eleven
 	jmp @@end
 	
 @@end:
@@ -3117,6 +3084,54 @@ proc Level_Ten
 	ret
 endp Level_Ten
 
+;
+;        █   •  █
+;        █
+;    █   █
+;        █      ▲
+proc Level_Eleven
+	cmp [Objects_Placed], 1
+	je @@move_objects
+	
+	mov [Objects_Placed], 1
+	
+	mov [Xpos_Blocks], 330 ; first block
+	mov [Ypos_Blocks], 125
+	mov [Xpos_Tower], 400 ; first tower
+	mov [Height_Tower], 4
+	mov [Xpos_Points], 450 ; first bonus point
+	mov [Ypos_Points], 100
+	mov [Xpos_Blocks + 2], 495 ; second block
+	mov [Ypos_Blocks + 2], 89
+	mov [Xpos_Triangle], 495 ; first triangle
+	mov [Ypos_Triangle], 152
+	
+	call Draw_All
+	
+	sub [delay], 8
+	
+@@move_objects:
+	call Erase_All
+	
+	mov ax, 5
+	sub [Xpos_Blocks], ax
+	sub [Xpos_Blocks + 2], ax
+	sub [Xpos_Triangle], ax
+	sub [Xpos_Points], ax
+	sub [Xpos_Tower], ax
+	cmp [Xpos_Triangle], 6400
+	ja @@end_level
+	
+	
+	call Draw_All
+	jmp @@end
+@@end_level:
+	mov [Objects_Placed], 0
+	add [delay], 8
+@@end:
+	ret
+endp Level_Eleven
+
 proc Draw_All
 	call Draw_Tower
 	call Draw_Triangle
@@ -3138,126 +3153,126 @@ proc Transfer_bmp_matrix
 	;90 degrees
 	mov [CurrentSize], 18
 	mov bx, offset matrix_cube
-	mov [offset_matrix], bx
+	mov [matrix], bx
 	mov dx, offset FileName_cube
 	call CopyBmp
 	
 	;5 degrees
 	mov [CurrentSize], 20
 	mov bx, offset matrix_cube5
-	mov [offset_matrix], bx
+	mov [matrix], bx
 	mov dx, offset FileName_cube5
 	call CopyBmp
 		
 	;10 degrees
 	mov [CurrentSize], 21
 	mov bx, offset matrix_cube10
-	mov [offset_matrix], bx
+	mov [matrix], bx
 	mov dx, offset FileName_cube10
 	call CopyBmp
 	
 	;15 degrees
 	mov [CurrentSize], 22
 	mov bx, offset matrix_cube15
-	mov [offset_matrix], bx
+	mov [matrix], bx
 	mov dx, offset FileName_cube15
 	call CopyBmp
 	
 	;20 degrees
 	mov [CurrentSize], 23
 	mov bx, offset matrix_cube20
-	mov [offset_matrix], bx
+	mov [matrix], bx
 	mov dx, offset FileName_cube20
 	call CopyBmp
 	
 	;25 degrees
 	mov [CurrentSize], 24
 	mov bx, offset matrix_cube25
-	mov [offset_matrix], bx
+	mov [matrix], bx
 	mov dx, offset FileName_cube25
 	call CopyBmp
 	
 	;30 degrees
 	mov [CurrentSize], 24
 	mov bx, offset matrix_cube30
-	mov [offset_matrix], bx
+	mov [matrix], bx
 	mov dx, offset FileName_cube30
 	call CopyBmp
 	
 	;35 degrees
 	mov [CurrentSize], 25
 	mov bx, offset matrix_cube35
-	mov [offset_matrix], bx
+	mov [matrix], bx
 	mov dx, offset FileName_cube35
 	call CopyBmp
 	
 	;40 degrees
 	mov [CurrentSize], 25
 	mov bx, offset matrix_cube40
-	mov [offset_matrix], bx
+	mov [matrix], bx
 	mov dx, offset FileName_cube40
 	call CopyBmp
 	
 	;45 degrees
 	mov [CurrentSize], 25
 	mov bx, offset matrix_cube45
-	mov [offset_matrix], bx
+	mov [matrix], bx
 	mov dx, offset FileName_cube45
 	call CopyBmp
 	
 	;50 degrees
 	mov [CurrentSize], 25
 	mov bx, offset matrix_cube50
-	mov [offset_matrix], bx
+	mov [matrix], bx
 	mov dx, offset FileName_cube50
 	call CopyBmp
 	
 	;55 degrees
 	mov [CurrentSize], 25
 	mov bx, offset matrix_cube55
-	mov [offset_matrix], bx
+	mov [matrix], bx
 	mov dx, offset FileName_cube55
 	call CopyBmp
 	
 	;60 degrees
 	mov [CurrentSize], 24
 	mov bx, offset matrix_cube60
-	mov [offset_matrix], bx
+	mov [matrix], bx
 	mov dx, offset FileName_cube60
 	call CopyBmp
 	
 	;65 degrees
 	mov [CurrentSize], 24
 	mov bx, offset matrix_cube65
-	mov [offset_matrix], bx
+	mov [matrix], bx
 	mov dx, offset FileName_cube65
 	call CopyBmp
 	
 	;70 degrees
 	mov [CurrentSize], 23
 	mov bx, offset matrix_cube70
-	mov [offset_matrix], bx
+	mov [matrix], bx
 	mov dx, offset FileName_cube70
 	call CopyBmp
 	
 	;75 degrees
 	mov [CurrentSize], 22
 	mov bx, offset matrix_cube75
-	mov [offset_matrix], bx
+	mov [matrix], bx
 	mov dx, offset FileName_cube75
 	call CopyBmp
 	
 	;80 degrees
 	mov [CurrentSize], 21
 	mov bx, offset matrix_cube80
-	mov [offset_matrix], bx
+	mov [matrix], bx
 	mov dx, offset FileName_cube80
 	call CopyBmp
 	
 	;85 degrees
 	mov [CurrentSize], 19
 	mov bx, offset matrix_cube85
-	mov [offset_matrix], bx
+	mov [matrix], bx
 	mov dx, offset FileName_cube85
 	call CopyBmp
 	
@@ -3290,7 +3305,7 @@ proc OpenShowBmp near
 	ret
 endp OpenShowBmp
 
-;for making it matrix
+;for making a bmp into matrix
 proc CopyBmp near
 		 
 	call OpenBmpFile
@@ -3303,10 +3318,8 @@ proc CopyBmp near
 	
 	call CopyBmpPalette
 	
-
 	call MatrixBMP
 	
-	 
 	call CloseBmpFile
 
 @@ExitProc:
@@ -3500,16 +3513,14 @@ proc MatrixBMP
 	sub bp,dx
 
 @@row_ok:	
-	xor dx, dx
-	mov di, [offset_matrix]
+	mov di, [matrix]
 	mov ax, [CurrentSize]
 	mul ax
-	add di, ax
-	add di, [CurrentSize]
+	add di, ax ; we will put di at the end of the matrix
+	add di, [CurrentSize] ; now we will put the pointer one line after the matrix
 	
 @@NextLine:
 	push cx
-	push dx
 	
 	;fix matrix becuase draw it upside down
 	;move di to last line then up it each loop cycle
@@ -3530,7 +3541,7 @@ proc MatrixBMP
 	
 	;we will create rep movsb but we will check if its outside wall or inside wall
 @@rep_movsb:
-	mov al, [ds:si]
+	lodsb
 	cmp al, 3fh ; outside wall 
 	je @@out_wall
 	
@@ -3546,12 +3557,9 @@ proc MatrixBMP
 	mov al, [InsideColor]
 	
 @@putcolor:
-	mov [es:di], al
-	inc si
-	inc di
+	stosb
 	loop @@rep_movsb
 	
-	pop dx
 	pop cx
 	 
 	loop @@NextLine
