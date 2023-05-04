@@ -277,12 +277,51 @@ DATASEG
 	ScoreInNumbers dw ? ; the score in file converted to number
 	ErasePrevName db 13 dup ('x') ; if a player did a new high score
 	BestScoreHolder db 14 dup ('$') ; the name of the best player with the highest score
+	
+;In graphics modes, the screen contents around the current mouse cursor position are ANDed with the screen mask and then XORed with the cursor mask
+;screen mask ->
+;1 - don't touch, 0 - draw (it will draw black without the cursor mask because we force it to be black with AND)
+MouseMask 	dw 1111111111111111b
+			dw 1111111111111111b
+			dw 1100000000000011b
+			dw 1100000000000011b
+			dw 1101110000111011b
+			dw 1101110000111011b
+			dw 1101110000111011b
+			dw 1100000000000011b
+			dw 1100000000000011b
+			dw 1100000000000011b
+			dw 1101111111111011b
+			dw 1101111111111011b
+			dw 1100000000000011b
+			dw 1100000000000011b
+			dw 1111111111111111b
+			dw 1111111111111111b
+;cursor mask ->
+;we will put a color on the cursor mask
+;0 - don't touch, 1 - put color (because we are doing XOR it will make all the zeros from before to ones)
+			dw 0000000000000000b
+			dw 0000000000000000b
+			dw 0011111111111100b
+			dw 0011111111111100b
+			dw 0010001111000100b
+			dw 0010001111000100b
+			dw 0010001111000100b
+			dw 0011111111111100b
+			dw 0011111111111100b
+			dw 0011111111111100b
+			dw 0010000000000100b
+			dw 0010000000000100b
+			dw 0011111111111100b
+			dw 0011111111111100b
+			dw 0000000000000000b
+			dw 0000000000000000b
 ; --------------------------
 
 CODESEG
 start:
-	mov ax, @data
-	mov ds, ax
+	push @data
+	pop ds
 ; --------------------------
 call SettingsGame
 	
@@ -306,7 +345,7 @@ end_game:
 	je start_over
 ; --------------------------
 exit:
-	call clearkeyboardbuffer
+	call clearkeyboardbuffer ; erase all the keys from buffer
 
 	mov ax,2	;returns the screen to text mode
 	int 10h
@@ -319,7 +358,7 @@ exit:
 proc SettingsGame
 	call SetGraphics ; sets to graphics mode
 	
-	call SetMouseLimits ; set mouse limits of screen
+	call SetMouse ; set mouse limits of screen and changes cursor
 	ret
 endp SettingsGame
 
@@ -541,24 +580,43 @@ proc CountSeconds
 endp CountSeconds
 
 ;sets the limit for starting screens
-proc SetMouseLimits
+proc SetMouse
 	pusha
 
 	mov ax, 7 ; set limits of mouse - X
-	mov cx, 17 ; min
-	mov dx, 292 ; max
+	mov cx, 24 ; min
+	mov dx, 295 ; max
 	shl cx, 1
 	shl dx, 1
 	int 33h
 	
 	mov ax, 8 ; set limits of mouse - Y
-	mov cx, 24 ; min
-	mov dx, 162 ; max
+	mov cx, 31 ; min
+	mov dx, 171 ; max
 	int 33h
+	
+	call ChangeCursor ; set mouse cursor
 
 	popa
 	ret
-endp SetMouseLimits
+endp SetMouse
+
+proc ChangeCursor
+    push bx cx ax dx
+	
+	push ds
+	pop es ; because it transfers to ES:DX
+	
+	mov ax, 9
+	; we will put our actual cursor in the middle of the cube
+    mov bx, 8 ; horizontal hot spot
+    mov cx, 8 ; vertical hot spot
+    mov dx, offset MouseMask
+    int 33h
+	
+    pop dx ax cx bx
+    ret
+endp ChangeCursor
 
 ;for loading screen
 proc MouseShow
@@ -1555,12 +1613,7 @@ endp Erase_Block
 proc DrawBlock_Stack
 	push bp
 	mov bp, sp
-	push ax
-	push bx
-	push cx
-	push dx
-	push si
-	push di
+	push ax bx cx dx si di
 	
 	;now we calculate the place
 	mov ax, [word bp + 6]
@@ -1578,13 +1631,7 @@ proc DrawBlock_Stack
 	
 	call putMatrixInScreen
 	
-	pop di
-	pop si
-	pop dx
-	pop cx
-	pop bx
-	pop ax
-	pop bp
+	pop di si dx cx bx ax bp
 	ret 4
 endp DrawBlock_Stack
 
@@ -2376,6 +2423,7 @@ proc Cube_Ascend
 	jbe @@slow
 	
 	;if we havn't reached the point
+	call Check_Hit
 	sub [Ypos], 6
 	jmp @@end
 	
@@ -3369,16 +3417,14 @@ endp ReadBmpHeader
 
 proc ReadBmpPalette near ; Read BMP file color palette, 256 colors * 4 bytes (400h)
 						 ; 4 bytes for each color BGR + null)			
-	push cx
-	push dx
+	push cx dx
 	
 	mov ah,3fh
 	mov cx,400h
 	mov dx,offset Palette
 	int 21h
 	
-	pop dx
-	pop cx
+	pop dx cx
 	
 	ret
 endp ReadBmpPalette
@@ -3389,8 +3435,7 @@ endp ReadBmpPalette
 ; and 3C9h for all rest
 proc CopyBmpPalette		near					
 										
-	push cx
-	push dx
+	push cx dx
 	
 	mov si,offset Palette
 	mov cx,256
@@ -3412,8 +3457,7 @@ CopyNextColor:
 								
 	loop CopyNextColor
 	
-	pop dx
-	pop cx
+	pop dx cx
 	
 	ret
 endp CopyBmpPalette
@@ -3444,8 +3488,7 @@ proc ShowBMP
 	mov dx,[BmpLeft]
 	
 @@NextLine:
-	push cx
-	push dx
+	push cx dx
 	
 	mov di,cx  ; Current Row at the small bmp (each time -1)
 	add di,[BmpTop] ; add the Y on entire screen
@@ -3479,8 +3522,7 @@ proc ShowBMP
 	inc si
 	loop @@put_screen
 	
-	pop dx
-	pop cx
+	pop dx cx
 	 
 	loop @@NextLine
 	
@@ -3600,12 +3642,7 @@ endp PutBmpPalette
 proc DrawPictureBmp
 	push bp
 	mov bp, sp
-	push ax
-	push bx
-	push cx
-	push dx
-	push si
-	push di
+	push ax bx cx dx si di
 	
 	mov ax, [bp + 10];x
 	mov bx, [bp + 8];y
@@ -3634,13 +3671,7 @@ exitError:
 	
 	@@end:
 	
-	pop di
-	pop si
-	pop dx
-	pop cx
-	pop bx
-	pop ax
-	pop bp
+	pop di si dx cx bx ax bp
 	ret 8
 endp DrawPictureBmp	 
 
@@ -3846,9 +3877,7 @@ endp putCubeInData
 ; 	Make sure the cs size is 50 bytes or more 
 ; 	(if not, make it to be more) 
 proc RandomByCs
-    push es
-	push si
-	push di
+    push es si di
 	
 	mov ax, 40h
 	mov	es, ax
@@ -3881,9 +3910,7 @@ RandLoop: ;  generate random number
 	add al,bl  ; add the lower limit to the rnd num
 		 
 @@ExitP:	
-	pop di
-	pop si
-	pop es
+	pop di si es
 	ret
 endp RandomByCs
 
