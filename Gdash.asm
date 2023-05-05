@@ -797,11 +797,12 @@ proc Settings_Screen
 	
 	;if it got here one of the outer colors were pressed
 	;we will check what color was pressed
-	dec dx
+	;hide mouse
+	add dx, 3
     mov ah, 0dh ; check color
     mov bh, 0
     int 10h
-	inc dx
+	sub dx, 3
 	
 	cmp al, 0beh ; if it the green color between blocks
 	je @@check_click
@@ -815,11 +816,11 @@ proc Settings_Screen
 	cmp dx, 120
 	ja @@check_speed_game
 	
-	dec dx
-	mov ah, 0dh ; check color
+	add dx, 3
+    mov ah, 0dh ; check color
     mov bh, 0
     int 10h
-	inc dx
+	sub dx, 3
 	
 	cmp al, 0beh ; if it the green color between blocks
 	je @@check_click
@@ -1978,7 +1979,7 @@ proc Check_floor_Under
 	je @@floor
 	
 	add di, [CurrentSize]
-	add di, 2
+	add di, 4
 	mov al, 0ffh ; check if white
 	scasb
 	je @@floor
@@ -1988,6 +1989,29 @@ proc Check_floor_Under
 	je @@floor
 	
 	sub di, 12
+	mov al, 0ffh ; check if white
+	scasb
+	je @@floor
+	
+	mov al, 0 ; check if black
+	scasb
+	je @@floor
+	
+	add di, 4*320
+	scasb
+	je @@floor
+	
+	add di, 12
+	mov al, 0ffh ; check if white
+	scasb
+	je @@floor
+	
+	mov al, 0 ; check if black
+	scasb
+	je @@floor
+	
+	sub di, [CurrentSize]
+	sub di, 4
 	mov al, 0ffh ; check if white
 	scasb
 	je @@floor
@@ -2051,8 +2075,9 @@ proc Check_Point
 	
 	mov cx, Xpos_Cube
 	add cx, [CurrentSize]
-	add cx, 7 ; a little bit forward of cube
+	add cx, 6 ; a little bit forward of cube
 	mov dx, [Ypos]
+	add dx, 3
 	
 	;right up point of cube
 	call CheckIsInPoint
@@ -2064,18 +2089,16 @@ proc Check_Point
 	call CheckIsInPoint
 	cmp bp, 1
 	je @@catch_point
-
-	add dx, 6
-	call CheckIsInPoint
-	cmp bp, 1
-	je @@catch_point
 	
 	add dx, 8
 	call CheckIsInPoint
 	cmp bp, 1
 	je @@catch_point
 	
-	add dx, 4
+	cmp [Is_Falling], 1
+	je @@skip_under
+
+	add dx, 8
 	call CheckIsInPoint
 	cmp bp, 1
 	je @@catch_point
@@ -2085,42 +2108,28 @@ proc Check_Point
 	cmp bp, 1
 	je @@catch_point
 	
-	sub cx, 6
+	sub cx, 10
 	call CheckIsInPoint
 	cmp bp, 1
 	je @@catch_point
 	
-	sub cx, 6
+	sub cx, 12
 	call CheckIsInPoint
 	cmp bp, 1
 	je @@catch_point
 	
-	sub cx, 6
+@@skip_under:
+	
+	mov dx, [CurrentSize]
+	sub dx, 3
 	call CheckIsInPoint
 	cmp bp, 1
 	je @@catch_point
 	
-	sub cx, 3
+	add cx, 10
 	call CheckIsInPoint
 	cmp bp, 1
 	je @@catch_point
-	
-	sub dx, [CurrentSize]
-	sub dx, 7
-	call CheckIsInPoint
-	cmp bp, 1
-	je @@catch_point
-	
-	add cx, 6
-	call CheckIsInPoint
-	cmp bp, 1
-	je @@catch_point
-	
-	add cx, 6
-	call CheckIsInPoint
-	cmp bp, 1
-	je @@catch_point
-	
 	
 	jmp @@end
 
@@ -2172,40 +2181,26 @@ proc Check_Blocks
 	
 	mov cx, Xpos_Cube
 	mov dx, [Ypos]
-	sub dx, 5
-	sub cx, 4
+	add cx, [CurrentSize]
+	add cx, 7
 	
 	mov ax, dx
 	mov bx, 320
 	mul bx
 	mov di, ax
-	add di, cx ; left right
+	add di, cx ; right to the cube up
 	
-	mov al, 0 ; check white
-	cmp [can_jump], 1 ; we wont check up if we dont go up
-	je @@cont
+	mov al, 0 ; check black
 	scasb ; cmp [es:di], al
 	je @@end_game
-
-@@cont:
-
-	add di, [CurrentSize] ; up right
-	add di, 5
-	cmp [can_jump], 1 ; we wont check up if we dont go up
-	je @@cont1
-	scasb
-	je @@end_game
-	
-@@cont1:
 	
 	;now we go down
 	add di, 5*320
-	add di, 3
-	scasb ; check white
+	scasb
 	je @@end_game
 
 	add di, 320*4
-	scasb ; check white
+	scasb
 	je @@end_game
 	
 	add di, 320*8
@@ -2338,18 +2333,50 @@ endp Check_Triangle
 ;this will check if we have floor under us while falling from a block - when not jumpimg
 proc Check_Fall
 	pusha
+	
+	;we will check if we hit floor
+	call Check_floor_Under
+	cmp al, 1
+	jne @@cont ; if didnt see white continute
+	
+	cmp [Ypos], 125 ; if above
+	ja @@hit_floor
+	
+	cmp [Ypos], 107 ; if landed on one block
+	ja @@one_block
+	
+	cmp [Ypos], 89
+	ja @@two_blocks
+	
+	cmp [Ypos], 71
+	ja @@three_blocks
+	jmp @@cont
+	
+@@hit_floor:
+	mov [Ypos], 143
+	jmp @@hit_ground
+	
+@@one_block:
+	mov [Ypos], 125
+	jmp @@hit_ground
 
+@@two_blocks:
+	mov [Ypos], 107
+	jmp @@hit_ground
+	
+@@three_blocks:
+	mov [Ypos], 89
+	jmp @@hit_ground
+
+@@cont:
 	;we need to go down - no floor
-	mov [Is_Falling], 1
 	mov [can_jump], 0
 	add [Ypos], 6
 	cmp [Ypos], 136
 	ja @@hit_floor
 	jmp @@end
 	
-@@hit_floor:
-	
-	mov [Ypos], 143
+@@hit_ground:
 	mov [can_jump], 1 ; we can jump again - in case we are falling we will cancel the jump movement so when when stop falling we cant jump
 	mov [Is_Falling], 0
 	mov [Is_Going_down], 0
@@ -2358,6 +2385,43 @@ proc Check_Fall
 	popa
 	ret
 endp Check_Fall
+
+;will check for the color black above the cube - only be used when going up
+proc Check_Above
+	push 0a000h
+	pop es
+	
+	;getting di to be the location on screen
+	mov bx, 320
+	mov ax, [Ypos]
+	mul bx
+	mov di, ax
+	add di, Xpos_Cube
+	
+	sub di, 320 * 3 ; three rows up
+	xor al, al ; check black
+	scasb ; cmp [es:di], al
+	je @@exit_game
+	
+	
+	mov bx, [CurrentSize]
+	dec di
+	shr bx, 1 ; go to the middle
+	add di, bx
+	scasb
+	je @@exit_game
+	
+	add di, bx
+	scasb
+	je @@exit_game
+	
+	jmp @@end
+@@exit_game:
+	mov [IsExit], 1
+	
+@@end:
+	ret
+endp Check_Above
 
 ;================================================
 ; Description -  goes up until going 30 vertical up
@@ -2398,7 +2462,9 @@ proc Cube_Ascend
 	jbe @@slow
 	
 	;if we havn't reached the point
-	call Check_Hit
+	call Check_Above
+	cmp [IsExit], 1
+	je @@end
 	sub [Ypos], 6
 	jmp @@end
 	
@@ -2450,6 +2516,7 @@ proc Descending
 endp Descending
 
 ;checks if we are on cube - only be used after finishing a jump
+;will sign that we are falling
 proc Check_Where_Cube
 	push dx
 	cmp [Is_Going_up], 1
@@ -2495,10 +2562,6 @@ endp Check_Where_Cube
 proc Cube_Move
 	pusha
 	
-	call Check_Hit
-	cmp [IsExit], 1
-	je @@end
-	
 	cmp [Is_Going_up], 1 ; if we go up then continue ascending
 	je @@jump
 	
@@ -2528,7 +2591,9 @@ proc Cube_Move
 	call DrawCube
 	
 @@end_move:
-	
+
+	cmp [IsExit], 1
+	je @@end
 	call Check_Where_Cube
 	call Check_Hit ; if we got into a block or triangle and died
 	
@@ -2547,10 +2612,10 @@ proc PickLevel
 	je @@put_level
 	
 	mov bl, 1 ; min level
-	mov bh, 11 ; max numbers of levels
+	mov bh, 12 ; max numbers of levels
 	call RandomByCs
 	;now al has the number of the level
-	mov [CurentLevel], al
+	mov [CurentLevel], 12
 	
 @@put_level:
 	mov al, [CurentLevel]
@@ -2587,6 +2652,9 @@ proc PickLevel
 	
 	cmp al, 11
 	je @@level_eleven
+	
+	cmp al, 12
+	je @@level_twelve
 	
 @@level_one:
 	call Level_One
@@ -2630,6 +2698,10 @@ proc PickLevel
 	
 @@level_eleven:
 	call Level_Eleven
+	jmp @@end
+	
+@@level_twelve:
+	call Level_Twelve
 	jmp @@end
 	
 @@end:
@@ -3154,6 +3226,55 @@ proc Level_Eleven
 @@end:
 	ret
 endp Level_Eleven
+
+;
+;              •
+;              █
+;      █      
+;   ▲  █  █
+
+proc Level_Twelve
+	cmp [Objects_Placed], 1
+	je @@move_objects
+	
+	mov [Objects_Placed], 1
+	
+	mov [Xpos_Triangle], 330 ; first triagnle
+	mov [Ypos_Triangle], 152
+	mov [Xpos_Tower], 420 ; first tower
+	mov [Height_Tower], 2
+	mov [Xpos_Blocks], 470 ; first block
+	mov [Ypos_Blocks], 143
+	mov [Xpos_Blocks + 2], 535 ; first block
+	mov [Ypos_Blocks + 2], 107
+	mov [Xpos_Points], 541 ; first bonus point
+	mov [Ypos_Points], 92
+	
+	call Draw_All
+	
+	sub [delay], 4
+	
+@@move_objects:
+	call Erase_All
+	
+	mov ax, 5
+	sub [Xpos_Blocks], ax
+	sub [Xpos_Triangle], ax
+	sub [Xpos_Points], ax
+	sub [Xpos_Tower], ax
+	sub [Xpos_Blocks + 2], ax
+	cmp [Xpos_Blocks + 2], 6400
+	ja @@end_level
+	
+	
+	call Draw_All
+	jmp @@end
+@@end_level:
+	mov [Objects_Placed], 0
+	add [delay], 4
+@@end:
+	ret
+endp Level_Twelve
 
 proc Draw_All
 	call Draw_Tower
@@ -3853,7 +3974,7 @@ proc RandomByCs
 	call MakeMask ; will put in si the right mask according the delta (bh) (example for 28 will put 31)
 	
 RandLoop: ;  generate random number 
-	mov ax, [es:06ch] ; read timer counter
+	mov ax, [word es:06ch] ; read timer counter
 	mov ah, [byte cs:di] ; read one byte from memory (from semi random byte at cs)
 	xor al, ah ; xor memory and counter
 	
