@@ -1,4 +1,4 @@
-.486 ; changing the version to enable features such as - pusha and popa
+.486
 IDEAL
 MODEL small
 
@@ -22,10 +22,12 @@ endm DRAW_FULL_BMP
 ; -- const variables --
 ;Cube
 Xpos_Cube = 50
-Cube_Max_Size = 25*25
+Cube_Max_Size = 25*25 ; the cube reg size is 18*18 but while rotating it changes, so we will put the max size it can get
 
 ;Objetcs
 Max_Objects = 5
+
+Max_Objects_Towers = 3 ; drawing and erasing a tower takes time so the max towers will be three and not five to make the game feels smooth
 
 ;Triangle
 Triangle_Size = 9*18
@@ -78,8 +80,8 @@ DATASEG
 	seconds dw ? ; the amount of seconds the player has been alive
 	
 	;score
-	FinalScore dw ? ; final score of the player 
-	FinalScoreTXT db "xxxx", '$' ; the number above but in text to print in end screen
+	PlayerScoreRealNum dw ? ; final score of the player 
+	PlayerScoreTXT db "xxxx", '$' ; the number above but in text to print in end screen
 	
 	; -- Cube variables --
 	CurrentSize dw 18 ; size of the cube according to each frame - while rotation
@@ -131,9 +133,9 @@ DATASEG
 	;Tower
 	
 	;when creating towers we will give the height of the tower instead Ypos
-	Xpos_Tower dw Max_Objects dup (Starting_Pos)
-	Ypos_Tower dw Max_Objects dup (?) ; ypos is calculated by how many blocks we want
-	Height_Tower dw Max_Objects dup (?)
+	Xpos_Tower dw Max_Objects_Towers dup (Starting_Pos)
+	Ypos_Tower dw Max_Objects_Towers dup (?) ; ypos is calculated by how many blocks we want
+	Height_Tower dw Max_Objects_Towers dup (?)
 	
 	;Bonus Points
 	Xpos_Points dw Starting_Pos
@@ -274,27 +276,27 @@ DATASEG
 	FileName_Scores db 'scores.txt', 0 ; the name of the highest score ever
 	FileHandleScores dw ? ; the file handle
 	ScoreInFile db "xxxx", '$' ; score in file in text
-	ScoreInNumbers dw ? ; the score in file converted to number
+	ScoreFileRealNum dw ? ; the score in file converted to number
 	ErasePrevName db 13 dup ('x') ; if a player did a new high score
-	BestScoreHolder db 14 dup ('$') ; the name of the best player with the highest score
+	FileScoreHolder db 14 dup ('$') ; the name of the best player with the highest score
 	
 ;In graphics modes, the screen contents around the current mouse cursor position are ANDed with the screen mask and then XORed with the cursor mask
 ;screen mask ->
 ;1 - don't touch, 0 - draw (it will draw black without the cursor mask because we force it to be black with AND)
 MouseMask 	dw 1111111111111111b
 			dw 1111111111111111b
-			dw 1100000000000011b
-			dw 1100000000000011b
-			dw 1101110000111011b
-			dw 1101110000111011b
-			dw 1101110000111011b
-			dw 1100000000000011b
-			dw 1100000000000011b
-			dw 1100000000000011b
-			dw 1101111111111011b
-			dw 1101111111111011b
-			dw 1100000000000011b
-			dw 1100000000000011b
+			dw 1000000000000001b
+			dw 1000000000000001b
+			dw 1001110000111001b
+			dw 1001110000111001b
+			dw 1001110000111001b
+			dw 1000000000000001b
+			dw 1000000000000001b
+			dw 1000000000000001b
+			dw 1001111111111001b
+			dw 1001111111111001b
+			dw 1000000000000001b
+			dw 1000000000000001b
 			dw 1111111111111111b
 			dw 1111111111111111b
 ;cursor mask ->
@@ -302,26 +304,26 @@ MouseMask 	dw 1111111111111111b
 ;0 - don't touch, 1 - put color (because we are doing XOR it will make all the zeros from before to ones)
 			dw 0000000000000000b
 			dw 0000000000000000b
-			dw 0011111111111100b
-			dw 0011111111111100b
-			dw 0010001111000100b
-			dw 0010001111000100b
-			dw 0010001111000100b
-			dw 0011111111111100b
-			dw 0011111111111100b
-			dw 0011111111111100b
-			dw 0010000000000100b
-			dw 0010000000000100b
-			dw 0011111111111100b
-			dw 0011111111111100b
+			dw 0111111111111110b
+			dw 0111111111111110b
+			dw 0110001111000110b
+			dw 0110001111000110b
+			dw 0110001111000110b
+			dw 0111111111111110b
+			dw 0111111111111110b
+			dw 0111111111111110b
+			dw 0110000000000110b
+			dw 0110000000000110b
+			dw 0111111111111110b
+			dw 0111111111111110b
 			dw 0000000000000000b
 			dw 0000000000000000b
 ; --------------------------
 
 CODESEG
 start:
-	push @data
-	pop ds
+	mov ax, @data
+	mov ds, ax
 ; --------------------------
 call SettingsGame
 	
@@ -367,7 +369,7 @@ endp SettingsGame
 ;when the player finally picked starting screen it will get out of the screen and start the game
 ;so we will print the background and print the cube
 proc StartingGame
-	mov [bool_start_over], 0 ; resetting this bool
+	mov [bool_start_over], 0 ; we will assume that the player does not want to play again, if he chooses to play again this bar will be reset in the reset function
 	
 	call MouseShow ; for loading screens
 	call Transfer_bmp_matrix ; transfer all frames into matrix after picking the colors
@@ -426,7 +428,7 @@ proc CalcScore
 	
 	add ax, [seconds]
 
-	mov [FinalScore], ax
+	mov [PlayerScoreRealNum], ax
 
 	popa
 	ret
@@ -434,7 +436,7 @@ endp CalcScore
 	
 	
 ;dealing with the scores
-;will move to var "ScoreInNumbers" the score in the file
+;will move to var "ScoreFileRealNum" the score in the file
 proc ChangeScoreHighest
 	pusha
 
@@ -467,7 +469,7 @@ proc ChangeScoreHighest
 	inc si
 	loop @@turnIntoNum
 	
-	mov [ScoreInNumbers], ax
+	mov [ScoreFileRealNum], ax
 	
 	;now we will get our score
 	call CalcScore
@@ -480,19 +482,19 @@ proc ChangeScoreHighest
 endp ChangeScoreHighest
 
 ;we will compare the two scores
-;if our score is higher then the highest then we put our in the var "ScoreInNumbers" and change it to text and put it in "ScoreInFile"
+;if our score is higher then the highest then we put our in the var "ScoreFileRealNum" and change it to text and put it in "ScoreInFile"
 proc SetHighScore
 	pusha
 
-	mov ax, [FinalScore] ; our score
+	mov ax, [PlayerScoreRealNum] ; our score
 	
-	cmp ax, [ScoreInNumbers] ; the best score
+	cmp ax, [ScoreFileRealNum] ; the best score
 	
 	jbe @@end ; if our score is equal or below the highest score
 	
-	mov [bool_won], 1
+	mov [bool_won], 1 ; if not it means we "won" the best time
 	
-	mov [ScoreInNumbers], ax
+	mov [ScoreFileRealNum], ax ; move our score to the best score
 	
 	;now we need to copy it to the text form
 	mov si, offset ScoreInFile + 3 ;go to the end of var
@@ -506,17 +508,18 @@ proc SetHighScore
 	dec si
 	loop @@change_to_text
 	
+	;put the pointer to the start of the file because we moved it while reading from it
 	mov ah, 42h
-	mov al, 0
-	mov cx, 0
-	mov dx, 0
+	xor al, al
+	xor cx, cx
+	xor dx, dx
 	mov bx, [FileHandleScores]
 	int 21h
 	
 	;now we will write those to the file
 	;writing the score
 	mov ah, 40h
-	mov dx, offset ScoreInFile
+	mov dx, offset ScoreInFile ; because we changed from before it now holds the best time
 	mov bx, [FileHandleScores]
 	mov cx, 4
 	int 21h
@@ -584,8 +587,8 @@ proc SetMouse
 	pusha
 
 	mov ax, 7 ; set limits of mouse - X
-	mov cx, 24 ; min
-	mov dx, 295 ; max
+	mov cx, 25 ; min
+	mov dx, 294 ; max
 	shl cx, 1
 	shl dx, 1
 	int 33h
@@ -658,7 +661,9 @@ proc MouseShow
 	
 	;if it got here it means we have pressed on the start button
 	call Name_Screen
-	jmp @@end
+	cmp si, 1 ; if si is one it means the player chose the back arrow
+	je @@main_screen
+	jmp @@end ; if not it means he chose entered his name
 	
 @@check2:
 	;check if left button
@@ -869,7 +874,7 @@ endp Settings_Screen
 
 ;after hitting the start sign, it will ask for the players' name
 proc Name_Screen
-	pusha
+	push ax dx bx cx
 	
 	mov ax, 2 ; hide mouse
 	int 33h
@@ -879,7 +884,8 @@ proc Name_Screen
 	
 	mov ax, 1 ; show mouse
 	int 33h
-
+	
+	xor si, si
 @@check_click: ;check if left click was on the name enter
 	mov ax, 3
 	int 33h
@@ -922,11 +928,9 @@ proc Name_Screen
 	;if it got here it means the player has pressed back button
 	mov ax, 2
 	int 33h
-	call MouseShow
-	
-
+	mov si, 1
 @@end:
-	popa
+	pop cx bx dx ax
 	ret
 endp Name_Screen
 
@@ -1008,12 +1012,12 @@ proc Reset
 	mov [seconds], ?
 	
 	;score
-	mov [FinalScore], ?
-	mov [FinalScoreTXT],  'x'
-	mov [FinalScoreTXT + 1], 'x'
-	mov [FinalScoreTXT + 2], 'x'
-	mov [FinalScoreTXT + 3], 'x'
-	mov [FinalScoreTXT + 4], '$'
+	mov [PlayerScoreRealNum], ?
+	mov [PlayerScoreTXT],  'x'
+	mov [PlayerScoreTXT + 1], 'x'
+	mov [PlayerScoreTXT + 2], 'x'
+	mov [PlayerScoreTXT + 3], 'x'
+	mov [PlayerScoreTXT + 4], '$'
 	
 	; -- Cube variables --
 	
@@ -1049,8 +1053,6 @@ proc Reset
 	xor si, si
 @@reset_pos: ; reset the position of the blocks and triangles
 	mov [Xpos_Blocks + si], Starting_Pos
-	mov [Ypos_Blocks + si], Starting_Pos
-	mov [Xpos_Triangle + si], Starting_Pos
 	mov [Xpos_Triangle + si], Starting_Pos
 	inc si
 	cmp si, 5
@@ -1060,9 +1062,6 @@ proc Reset
 	xor si, si
 @@reset_Tower: ; reset the position of the towers
 	mov [Xpos_Tower + si], Starting_Pos
-	mov [Ypos_Tower + si], Starting_Pos
-	mov [Height_Tower + si], Starting_Pos
-	mov [Xpos_Triangle + si], Starting_Pos
 	inc si
 	cmp si, 3
 	jb @@reset_Tower
@@ -1091,7 +1090,7 @@ proc WriteScore
 	
 	call ChangeScoreToTXT
 	
-	mov dx, offset FinalScoreTXT ; now we print
+	mov dx, offset PlayerScoreTXT ; now we print
 	mov ah, 9
 	int 21h
 	
@@ -1113,14 +1112,14 @@ proc WriteScore
 	mov dh, 10
 	int 10h
 	
-	mov dl, '"'
+	mov dl, '"' ; to make it look like a name we will print " "
 	mov ah, 2
 	int 21h
 	
-	cmp [bool_won], 1
-	je @@write_player_name
-	
-	mov dx, offset BestScoreHolder
+	cmp [bool_won], 1 ; we will see if the player has the best time
+	je @@write_player_name ; if so write the players' name to the screen
+	;if not write the file name to the screen
+	mov dx, offset FileScoreHolder
 	
 @@read:
 	mov ah, 3fh
@@ -1135,15 +1134,15 @@ proc WriteScore
 	mov [byte si], '$'
 	
 	mov ah, 9
-	mov dx, offset BestScoreHolder
+	mov dx, offset FileScoreHolder
 	int 21h
 	jmp @@end
 	
 @@write_player_name:
 	
 	xor bx, bx
-	mov bl, [NamePlayer + 1]
-	add bl, 2
+	mov bl, [NamePlayer + 1] ; get the length of the name
+	add bl, 2 ; add two because of the starting digits when using int 21h, 0ah 
 	mov [NamePlayer + bx], '$'
 	
 	mov ah, 9
@@ -1158,13 +1157,13 @@ proc WriteScore
 endp WriteScore
 
 ;takes our final score and turn it into text to print in final screen
-;puts it in "FinalScoreTXT"
+;puts it in "PlayerScoreTXT"
 proc ChangeScoreToTXT
 	pusha
 	
-	mov ax, [FinalScore]
+	mov ax, [PlayerScoreRealNum]
 
-	mov si, offset FinalScoreTXT + 3 ;go to the end of var
+	mov si, offset PlayerScoreTXT + 3 ;go to the end of var
 	mov cx, 4
 	mov bx, 10 ; to div every time by ten
 @@change_to_text:
@@ -1809,7 +1808,7 @@ proc Erase_Tower
 	
 	xor si, si
 	xor bp, bp
-	mov cx, 5
+	mov cx, 3
 @@eraseAllTowers:
 	push cx
 	cmp [Xpos_Tower + si], 301
@@ -1960,35 +1959,42 @@ proc Check_floor_Under
 
 	cmp [Ypos], 143
 	je @@floor
-
-	mov ah, 0dh
-	mov cx, Xpos_Cube
-	mov dx, [Ypos]
-	add dx, [CurrentSize] ; down left
-	int 10h
-	cmp al, 0ffh ; check if white
+	
+	push 0a000h
+	pop es
+	
+	mov bx, 320
+	mov ax, [Ypos]
+	add ax, [CurrentSize]
+	mul bx
+	mov di, ax
+	add di, Xpos_Cube
+	mov al, 0ffh ; check if white
+	scasb
 	je @@floor
 	
-	cmp al, 0 ; check if black
+	mov al, 0 ; check if black
+	scasb
 	je @@floor
 	
-	add cx, [CurrentSize]
-	add cx, 2
-	int 10h
-	cmp al, 0ffh ; check if white
+	add di, [CurrentSize]
+	add di, 2
+	mov al, 0ffh ; check if white
+	scasb
 	je @@floor
 	
-	cmp al, 0 ; check if black
+	mov al, 0 ; check if black
+	scasb
 	je @@floor
 	
-	sub cx, 12
-	int 10h
-	cmp al, 0ffh ; check if white
+	sub di, 12
+	mov al, 0ffh ; check if white
+	scasb
 	je @@floor
 	
-	cmp al, 0 ; check if black
+	mov al, 0 ; check if black
+	scasb
 	je @@floor
-	
 	
 	;did not see floor
 	
@@ -2161,81 +2167,49 @@ endp CheckIsInPoint
 proc Check_Blocks
 	;we will use the 25 numbers because the maximun size of the cube is 25*25 while rotation
 	;we will check three pixels to the right up and down
-	mov ah,0Dh
+	push 0a000h
+	pop es
+	
 	mov cx, Xpos_Cube
 	mov dx, [Ypos]
 	sub dx, 5
 	sub cx, 4
+	
+	mov ax, dx
+	mov bx, 320
+	mul bx
+	mov di, ax
+	add di, cx ; left right
+	
+	mov al, 0 ; check white
 	cmp [can_jump], 1 ; we wont check up if we dont go up
 	je @@cont
-	int 10H ; AL = COLOR
-	cmp al, 0ffh ; check white
-	je @@end_game
-	
-	cmp al, 0
-	je @@end_game
-	
-@@cont:
-	add dx, 5 ; right wall up
-	add cx, [CurrentSize]
-	add cx, 3
-	int 10h
-	cmp al, 0ffh ; check white
+	scasb ; cmp [es:di], al
 	je @@end_game
 
-	add dx, [CurrentSize]
-	dec dx
-	int 10h
-	cmp al, 0ffh ; check white
+@@cont:
+
+	add di, [CurrentSize] ; up right
+	add di, 5
+	cmp [can_jump], 1 ; we wont check up if we dont go up
+	je @@cont1
+	scasb
 	je @@end_game
+	
+@@cont1:
 	
 	;now we go down
-	mov cx, Xpos_Cube ; right wall down
-	mov dx, [Ypos]
-	add cx, [CurrentSize]	;here we will check normal sides
-	add dx, [CurrentSize]
-	dec dx ; not on floor
-	int 10H ; AL = COLOR
-	cmp al, 0ffh ; check white
+	add di, 5*320
+	add di, 3
+	scasb ; check white
 	je @@end_game
 
-	inc cx
-	int 10h
-	cmp al, 0ffh ; check white
-	je @@end_game
-
-	inc cx
-	int 10h
-	cmp al, 0ffh ; check white
+	add di, 320*4
+	scasb ; check white
 	je @@end_game
 	
-	cmp al, 0
-	je @@end_game
-	
-	;now we go up
-	cmp [can_jump], 1
-	je @@end
-	mov cx, Xpos_Cube
-	mov dx, [Ypos]
-	add cx, [CurrentSize]	;right wall up - above cube
-	dec dx
-	int 10H ; AL = COLOR
-	cmp al, 0ffh ; check white
-	je @@end_game
-	
-	dec dx
-	int 10h
-	cmp al, 0ffh
-	je @@end_game
-	
-	sub cx, 9
-	int 10h
-	cmp al, 0ffh
-	je @@end_game
-	
-	sub cx, 9
-	int 10h
-	cmp al, 0ffh
+	add di, 320*8
+	scasb ; check black
 	je @@end_game
 	
 	xor al, al
@@ -2270,28 +2244,29 @@ proc Check_Triangle
 	add di, 19 ;end of triangle in x
 	
 	mov bp, bx
-	add bp, 8 ; end of triangle in y
+	add bp, 10 ; end of triangle in y
 	
 	;left down
 	mov cx, Xpos_Cube
 	mov dx, [Ypos]
 	add dx, [CurrentSize]
+	dec dx
 	
 	sub di, 4
 	cmp cx, ax
-	jb @@check2 ; if below it means our left side of the cube is not on the triangle - to his left side
+	jbe @@check2 ; if below it means our left side of the cube is not on the triangle - to his left side
 	
 	cmp cx, di
-	ja @@check2 ; if above it means our left side of the cube is not on the triangle - to ihs right side
+	jae @@check2 ; if above it means our left side of the cube is not on the triangle - to ihs right side
 	
 	;if we got here it means our x is in the triangle x area
 	;now we need to check the y
 	
 	cmp dx, bx
-	jb @@check2 ; if below it means we are above the triangle
+	jbe @@check2 ; if below it means we are above the triangle
 	
 	cmp dx, bp
-	ja @@check2
+	jae @@check2
 	
 	;if it got here it means we are on the triangle
 	jmp @@end_game
@@ -2306,16 +2281,16 @@ proc Check_Triangle
 	
 	;now we will just copy the above
 	cmp cx, ax
-	jb @@check3 ;if the cube is left to the triangle
+	jbe @@check3 ;if the cube is left to the triangle
 	
 	cmp cx, di
-	ja @@check3 ; if the cube is right to the triangle
+	jae @@check3 ; if the cube is right to the triangle
 	
 	cmp dx, bx
-	jb @@check3 ; if the cube is above the triangle
+	jbe @@check3 ; if the cube is above the triangle
 	
 	cmp dx, bp
-	ja @@check3
+	jae @@check3
 	
 	;if it got here it means we are in the triangle
 	jmp @@end_game
@@ -2325,16 +2300,16 @@ proc Check_Triangle
 	
 	;now we will just copy the above
 	cmp cx, ax
-	jb @@end_loop ;if the cube is left to the triangle
+	jbe @@end_loop ;if the cube is left to the triangle
 	
 	cmp cx, di
-	ja @@end_loop ; if the cube is right to the triangle
+	jae @@end_loop ; if the cube is right to the triangle
 	
 	cmp dx, bx
-	jb @@end_loop ; if the cube is above the triangle
+	jbe @@end_loop ; if the cube is above the triangle
 	
 	cmp dx, bp
-	ja @@end_loop
+	jae @@end_loop
 	
 	;if it got here it means we are in the triangle
 	jmp @@end_game
@@ -2343,7 +2318,7 @@ proc Check_Triangle
 @@end_loop:
 	add si, 2
 	cmp si, 8 ; five objects
-	jb @@checkEachTriangle
+	jbe @@checkEachTriangle
 	
 	
 
@@ -3399,8 +3374,7 @@ endp OpenBmpFile
 
 
 proc ReadBmpHeader	near					
-	push cx
-	push dx
+	push cx dx
 	
 	mov ah,3fh
 	mov bx, [FileHandle]
@@ -3408,8 +3382,7 @@ proc ReadBmpHeader	near
 	mov dx,offset Header
 	int 21h
 	
-	pop dx
-	pop cx
+	pop dx cx
 	ret
 endp ReadBmpHeader
 
@@ -3433,8 +3406,7 @@ endp ReadBmpPalette
 ; Will move out to screen memory the colors
 ; video ports are 3C8h for number of first color
 ; and 3C9h for all rest
-proc CopyBmpPalette		near					
-										
+proc CopyBmpPalette near
 	push cx dx
 	
 	mov si,offset Palette
@@ -3454,7 +3426,6 @@ CopyNextColor:
 	shr al,2            
 	out dx,al 							
 	add si,4 			; Point to next color.  (4 bytes for each color BGR + null)				
-								
 	loop CopyNextColor
 	
 	pop dx cx
@@ -3500,7 +3471,7 @@ proc ShowBMP
 	shl di,8
 	add di,cx
 	add di,dx
-	 
+	
 	; small Read one line
 	mov ah,3fh
 	mov cx,[BmpColSize]  
@@ -3511,19 +3482,10 @@ proc ShowBMP
 	cld ; Clear direction flag, for movsb
 	mov cx,[BmpColSize]  
 	mov si,offset ScrLine
-	;rep movsb ; Copy line to the screen
-	@@put_screen:
-	mov al, [ds:si]
-	cmp al, 1
-	je @@dont_draw
-	mov [es:di], al
-	@@dont_draw:
-	inc di
-	inc si
-	loop @@put_screen
+	rep movsb ; Copy line to the screen
 	
 	pop dx cx
-	 
+	
 	loop @@NextLine
 	
 	pop cx
