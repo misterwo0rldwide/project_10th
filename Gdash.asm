@@ -325,7 +325,7 @@ start:
 	mov ax, @data
 	mov ds, ax
 ; --------------------------
-call SettingsGame
+	call SettingsGame
 	
 start_over:
 
@@ -1219,6 +1219,9 @@ proc Enter_Name
 	
 	call clearkeyboardbuffer
 	
+	mov ax, 2
+	int 33h
+	
 	jmp @@Get_name
 	
 @@print_Error:
@@ -1233,8 +1236,6 @@ proc Enter_Name
 
 	;hide mouse to now enter name
 @@Get_name:
-	mov ax, 2
-	int 33h
 	
 	;moving the keyboard
 	mov ah, 2
@@ -1970,6 +1971,7 @@ proc Check_floor_Under
 	mul bx
 	mov di, ax
 	add di, Xpos_Cube
+	sub di, 2
 	mov al, 0ffh ; check if white
 	scasb
 	je @@floor
@@ -1988,7 +1990,7 @@ proc Check_floor_Under
 	scasb
 	je @@floor
 	
-	sub di, 12
+	sub di, 15
 	mov al, 0ffh ; check if white
 	scasb
 	je @@floor
@@ -1996,37 +1998,22 @@ proc Check_floor_Under
 	mov al, 0 ; check if black
 	scasb
 	je @@floor
-	
-	add di, 4*320
-	scasb
-	je @@floor
-	
-	add di, 12
-	mov al, 0ffh ; check if white
-	scasb
-	je @@floor
-	
-	mov al, 0 ; check if black
-	scasb
-	je @@floor
-	
-	sub di, [CurrentSize]
-	sub di, 4
-	mov al, 0ffh ; check if white
-	scasb
-	je @@floor
-	
-	mov al, 0 ; check if black
-	scasb
-	je @@floor
-	
 	;did not see floor
+@@no_floor:
 	
 	xor al, al
 	jmp @@end
 
 @@floor:
+	call Check_Triangle ; check if it saw a triangle
+	cmp al, 1
+	je @@exit_game
 	mov al, 1
+	jmp @@end
+	
+@@exit_game:
+	xor al, al
+	mov [IsExit], 1
 
 @@end:
 	ret
@@ -2245,9 +2232,9 @@ proc Check_Triangle
 	mov cx, Xpos_Cube
 	mov dx, [Ypos]
 	add dx, [CurrentSize]
-	dec dx
+	add dx, 3
 	
-	sub di, 4
+	sub di, 2
 	cmp cx, ax
 	jbe @@check2 ; if below it means our left side of the cube is not on the triangle - to his left side
 	
@@ -2269,7 +2256,7 @@ proc Check_Triangle
 	;right side
 @@check2:
 	add cx, [CurrentSize]
-	sub cx, 4
+	add cx, 4
 	;we need to check couple of x before the triangle and infront
 	add di, 4
 	sub ax, 3
@@ -2291,7 +2278,7 @@ proc Check_Triangle
 	jmp @@end_game
 	
 @@check3:
-	sub cx, 10
+	sub cx, 16
 	
 	;now we will just copy the above
 	cmp cx, ax
@@ -2333,50 +2320,44 @@ endp Check_Triangle
 ;this will check if we have floor under us while falling from a block - when not jumpimg
 proc Check_Fall
 	pusha
-	
-	;we will check if we hit floor
-	call Check_floor_Under
-	cmp al, 1
-	jne @@cont ; if didnt see white continute
-	
-	cmp [Ypos], 125 ; if above
-	ja @@hit_floor
-	
-	cmp [Ypos], 107 ; if landed on one block
-	ja @@one_block
-	
-	cmp [Ypos], 89
-	ja @@two_blocks
-	
-	cmp [Ypos], 71
-	ja @@three_blocks
-	jmp @@cont
-	
-@@hit_floor:
-	mov [Ypos], 143
-	jmp @@hit_ground
-	
-@@one_block:
-	mov [Ypos], 125
-	jmp @@hit_ground
-
-@@two_blocks:
-	mov [Ypos], 107
-	jmp @@hit_ground
-	
-@@three_blocks:
-	mov [Ypos], 89
-	jmp @@hit_ground
-
-@@cont:
 	;we need to go down - no floor
 	mov [can_jump], 0
 	add [Ypos], 6
-	cmp [Ypos], 136
-	ja @@hit_floor
+	
+	call Check_floor_Under
+	cmp al, 1
+	je @@hit_ground
+	cmp [IsExit], 1
+	je @@end
+	
 	jmp @@end
 	
 @@hit_ground:
+	mov dx, [Ypos]
+	cmp dx, 136
+	ja @@ground
+	
+	cmp dx, 118
+	ja @@block
+	
+	cmp dx, 100
+	ja @@two_blocks
+	
+	cmp dx, 82
+	ja @@three_blocks
+
+@@ground:
+	mov [Ypos], 143
+	jmp @@cont
+@@block:
+	mov [Ypos], 125
+	jmp @@cont
+@@two_blocks:
+	mov [Ypos], 107
+	jmp @@cont
+@@three_blocks:
+	mov [Ypos], 89
+@@cont:
 	mov [can_jump], 1 ; we can jump again - in case we are falling we will cancel the jump movement so when when stop falling we cant jump
 	mov [Is_Falling], 0
 	mov [Is_Going_down], 0
@@ -2411,6 +2392,12 @@ proc Check_Above
 	scasb
 	je @@exit_game
 	
+	add di, bx
+	scasb
+	je @@exit_game
+	
+	shr bx, 1
+	add di, 320 * 4
 	add di, bx
 	scasb
 	je @@exit_game
@@ -2495,10 +2482,6 @@ proc Descending
 	pusha
 	
 	add [Ypos], 9
-	
-	call Check_Triangle
-	cmp al, 1
-	je @@end
 	
 	call Check_floor_Under
 	cmp al, 1
@@ -2615,7 +2598,7 @@ proc PickLevel
 	mov bh, 12 ; max numbers of levels
 	call RandomByCs
 	;now al has the number of the level
-	mov [CurentLevel], 12
+	mov [CurentLevel], al
 	
 @@put_level:
 	mov al, [CurentLevel]
@@ -3263,13 +3246,16 @@ proc Level_Twelve
 	sub [Xpos_Points], ax
 	sub [Xpos_Tower], ax
 	sub [Xpos_Blocks + 2], ax
-	cmp [Xpos_Blocks + 2], 6400
+	cmp [Xpos_Points], 64000
 	ja @@end_level
-	
-	
+
+@@cont:	
 	call Draw_All
 	jmp @@end
 @@end_level:
+	cmp [Xpos_Blocks + 2], 64000
+	jb @@cont
+	
 	mov [Objects_Placed], 0
 	add [delay], 4
 @@end:
