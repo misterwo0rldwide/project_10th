@@ -118,7 +118,7 @@ DATASEG
 	; - blocks - 
 	;cube
 	
-	;we will put in all the objects minus one because we will check if an object is in the map (to know if to draw) by checking if below 301
+	;we will put in all the objects minus one -1 because we will check if an object is in the map (to know if to draw) by checking if below 301
 	;the reason for 301 is because the objects width is 18
 	;we will only check if below 301 in unsigned numbers
 	;when an objects goes from right to left its Xpos will eventully be 0fffh - so we will only draw an objects if is in 0 - 301 (x range)
@@ -226,7 +226,7 @@ DATASEG
     ScrLine db Max_Bmp_Width + 4 dup (?)  ; One Color line read buffer
 
 	;BMP File data
-	FileHandle	dw ?
+	FileHandle dw ?
 	Header db 54 dup(?)
 	Palette db 400h dup (?)
 	
@@ -582,7 +582,7 @@ proc CountSeconds
 	ret
 endp CountSeconds
 
-;sets the limit for starting screens
+;sets the limit for starting screens and changes the cursor
 proc SetMouse
 	pusha
 
@@ -1269,8 +1269,8 @@ proc clearkeyboardbuffer
 	
 	push 0
 	pop es
-	mov [word es:041ah], 0
-	mov	[word es:041ch], 0 ; Clears keyboard buffer
+	mov [word es:041ah], 0 ; pointer on the start of the buffer
+	mov	[word es:041ch], 0 ; pointer on the tail of the buffer
 	
 	pop	es
 	ret
@@ -1281,9 +1281,6 @@ endp clearkeyboardbuffer
 ; OUTPUT: bmp drawn on screen
 ; Register Usage: None
 ;================================================
-
-
-;draw all shapes
 
 ;cube - using bmp
 proc DrawCube
@@ -3293,7 +3290,7 @@ proc Transfer_bmp_matrix
 	mov [matrix], bx
 	mov dx, offset FileName_cube5
 	call CopyBmp
-		
+	
 	;10 degrees
 	mov [CurrentSize], 21
 	mov bx, offset matrix_cube10
@@ -3774,13 +3771,6 @@ proc putMatrixInScreen
 	mov es, ax
 	cld
 	
-	push dx
-	mov ax,cx
-	mul dx
-	mov bp,ax
-	pop dx
-	
-	
 	mov si,[matrix]
 	
 @@NextRow:	
@@ -3808,13 +3798,6 @@ proc putCubeInScreen
 	mov ax, 0A000h
 	mov es, ax
 	cld
-	
-	push dx
-	mov ax,cx
-	mul dx
-	mov bp,ax
-	pop dx
-	
 	
 	mov si,[matrix]
 	
@@ -3856,13 +3839,7 @@ proc putMatrixInData
 	mov ax, 0A000h
 	mov es, ax
 	cld
-	
-	push dx
-	mov ax,cx
-	mul dx
-	mov bp,ax
-	pop dx
-	
+
 	mov si,[matrix]
 	
 	;for saving the background faster we will switch the registers for enabling rep movsw
@@ -3901,13 +3878,6 @@ proc putCubeInData
 	mov es, ax
 	cld
 	
-	push dx
-	mov ax,cx
-	mul dx
-	mov bp,ax
-	pop dx
-	
-	
 	mov si,[matrix]
 	
 @@NextRow:	
@@ -3923,7 +3893,6 @@ proc putCubeInData
 	
 	sub di,dx
 	add di, 320
-	
 	
 	pop cx
 	loop @@NextRow
