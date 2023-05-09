@@ -47,6 +47,12 @@ Starting_Pos = -1
 ;bmp
 Max_Bmp_Width = 320
 
+;speed objects
+MovingObjectsXSpeed = 5
+
+;Xpos to check - of above the objects is out of the screen
+OutOfScreenX = 64000
+
 DATASEG
 ; --------------------------
 
@@ -356,7 +362,12 @@ exit:
 	int 21h
 ; --------------------------
 
-;set the settings of game
+;================================================
+; Description -  sets dos box to graphics mode and set mouse limits in X and Y and changes the mouse cursor
+; INPUT: None
+; OUTPUT: Graphics mode and new mouse settings
+; Register Usage: None
+;================================================
 proc SettingsGame
 	call SetGraphics ; sets to graphics mode
 	
@@ -364,10 +375,13 @@ proc SettingsGame
 	ret
 endp SettingsGame
 
-;checks if the player wanted to play again
-;if so check which screen the player picked with the mouse
-;when the player finally picked starting screen it will get out of the screen and start the game
-;so we will print the background and print the cube
+;================================================
+; Description -  shows starting screens, after the player entered his name in "name screen" all the frame of the cube will be tranfered to matrix in DS
+;				 After that it will draw the background of the game and draw the static position of the cube
+; INPUT: None
+; OUTPUT: Start screens and game screen and cube matrix on screen
+; Register Usage: None
+;================================================
 proc StartingGame
 	mov [bool_start_over], 0 ; we will assume that the player does not want to play again, if he chooses to play again this bar will be reset in the reset function
 	
@@ -385,8 +399,13 @@ proc StartingGame
 	ret
 endp StartingGame
 
-;picks a random level then moves the cube by the bools
-;then counts seconds and delay the game
+;================================================
+; Description -  Picks a random level and plays it, moves the cube according to the bools and counts seconds
+;				 And makes a delay
+; INPUT: None
+; OUTPUT: Generating random level and moves the cube
+; Register Usage: None
+;================================================
 proc GameLoop
 	call PickLevel ; picks a random level
 	
@@ -399,10 +418,16 @@ proc GameLoop
 	ret
 endp GameLoop
 
-;checks if our score is higher then the highest score, if so it replaces it
-;then print the end screen
-;closes the file and gets dos box the control back
+;================================================
+; Description -  calculates the player score and compare it to the highest score saved in "score.txt" file - if higher changes the name and score
+;				 Then prints the end screen and writes all the score - player score, highest score, and highest score holder
+;				 (if the player did the highest score his name and score will show up as the highest)
+; INPUT: None
+; OUTPUT: End screen shows up
+; Register Usage: None
+;================================================
 proc EndGame
+	pusha
 	
 	call ChangeScoreHighest ; handles the score using the file
 	call End_Screen ; end screen printing and writing and mouse
@@ -413,11 +438,16 @@ proc EndGame
 	mov bx, [FileHandleScores]
 	int 21h
 	
+	popa
 	ret
 endp EndGame
 	
-;calculating the score - each bonus point is 2 more seconds to total
-;total seconds + number of bonus point * 2 = score
+;================================================
+; Description -  calculates the player score - seconds + bonus_points * 2
+; INPUT: None
+; OUTPUT: Player score saved in DS - "PlayerScoreRealNum"
+; Register Usage: None
+;================================================
 proc CalcScore
 	pusha
 	
@@ -433,10 +463,13 @@ proc CalcScore
 	popa
 	ret
 endp CalcScore
-	
-	
-;dealing with the scores
-;will move to var "ScoreFileRealNum" the score in the file
+
+;================================================
+; Description -  takes the score in file and turns it into a real number, after that it compares our calculated score to the file score and declares the highest
+; INPUT: None
+; OUTPUT: real number of file in "ScoreFileRealNum" and the highest score in file
+; Register Usage: None
+;================================================
 proc ChangeScoreHighest
 	pusha
 
@@ -481,8 +514,12 @@ proc ChangeScoreHighest
 	ret
 endp ChangeScoreHighest
 
-;we will compare the two scores
-;if our score is higher then the highest then we put our in the var "ScoreFileRealNum" and change it to text and put it in "ScoreInFile"
+;================================================
+; Description -  compares player score with file score, if higher it puts player score in file and his name, if less - does nothing
+; INPUT: None
+; OUTPUT: highest score and the name of the holder saved in file "score.txt"
+; Register Usage: None
+;================================================
 proc SetHighScore
 	pusha
 
@@ -547,8 +584,13 @@ proc SetHighScore
 	ret
 endp SetHighScore
 
-;delay by ms - through stack
-
+;================================================
+; Description -  delays the program according to the number that was pushed in stack
+;				 this delay is not by milliseconds because the game is meant to be played in 10000 cycles
+; INPUT: Number of delay time in stack
+; OUTPUT: real number of file in "ScoreFileRealNum" and the highest score in file
+; Register Usage: None
+;================================================
 proc LoopDelay
 	push bp
 	mov bp, sp
@@ -569,7 +611,12 @@ proc LoopDelay
 endp LoopDelay
 
 
-;counts seconds and stores them in the var seconds
+;================================================
+; Description -  counts the seconds, every 37 cycles the a second has passed
+; INPUT: None
+; OUTPUT: number of seconds of time this function was used
+; Register Usage: None
+;================================================
 proc CountSeconds
 	
 	inc [counterSeconds]
@@ -582,7 +629,12 @@ proc CountSeconds
 	ret
 endp CountSeconds
 
-;sets the limit for starting screens and changes the cursor
+;================================================
+; Description -  sets the mouse for start of the game, sets the mouse limits (min and max y and x), and changes the cursor to look like a cube
+; INPUT: None
+; OUTPUT: new mouse limits and new mouse cursor
+; Register Usage: None
+;================================================
 proc SetMouse
 	pusha
 
@@ -604,6 +656,12 @@ proc SetMouse
 	ret
 endp SetMouse
 
+;================================================
+; Description -  masks the mouse cursor with "MouseMask" var in DS - using int 33h, 9
+; INPUT: None
+; OUTPUT: new mouse cursor
+; Register Usage: None
+;================================================
 proc ChangeCursor
     push bx cx ax dx
 	
@@ -621,7 +679,12 @@ proc ChangeCursor
     ret
 endp ChangeCursor
 
-;for loading screen
+;================================================
+; Description -  for starting the game, it checks which of the three buttons was pressed by the mouse
+; INPUT: None
+; OUTPUT: new screen according to the player press
+; Register Usage: None
+;================================================
 proc MouseShow
 	pusha
 	
@@ -706,7 +769,12 @@ proc MouseShow
 	ret
 endp MouseShow
 
-;will show how to play the game and will check if the mouse hit the "back" sign
+;================================================
+; Description -  shows a guide on how to play the game, and checks if the player wants to go back
+; INPUT: None
+; OUTPUT: Guiding BMP picture
+; Register Usage: None
+;================================================
 proc Guiding_Screen
 	pusha
 
@@ -744,6 +812,12 @@ proc Guiding_Screen
 	ret
 endp Guiding_Screen
 
+;================================================
+; Description -  shows a settings screen, and checks which of the settings the player picked - the colors of the walls and the speed of the game
+; INPUT: None
+; OUTPUT: changes in the settings of the game according to the player
+; Register Usage: None
+;================================================
 proc Settings_Screen
 	pusha
 	
@@ -873,7 +947,12 @@ proc Settings_Screen
 	ret
 endp Settings_Screen
 
-;after hitting the start sign, it will ask for the players' name
+;================================================
+; Description -  before starting the game, it will require to enter the name of the player, so here we check if the player pressed the name enter area
+; INPUT: None
+; OUTPUT: Hides mouse after pressing the name area
+; Register Usage: None
+;================================================
 proc Name_Screen
 	push ax dx bx cx
 	
@@ -935,6 +1014,12 @@ proc Name_Screen
 	ret
 endp Name_Screen
 
+;================================================
+; Description -  shows the end screen and writes the score and name to the screen and checks if the player wants to play again
+; INPUT: None
+; OUTPUT: Scores and name on screen 
+; Register Usage: None
+;================================================
 proc End_Screen
 	pusha
 
@@ -990,7 +1075,12 @@ proc End_Screen
 	ret
 endp End_Screen
 
-;reset all vars if a player has picked the "yes" button in the end screen
+;================================================
+; Description -  Resets all the vars that the game need to function - this will be only used if the player chose to play again
+; INPUT: None
+; OUTPUT: All DS vars that the game uses reseted
+; Register Usage: None
+;================================================
 proc Reset
 
 	mov [NamePlayer], 14
@@ -1523,7 +1613,7 @@ proc DrawBlock
 	
 	xor si, si
 	xor bp, bp
-	mov cx, 5
+	mov cx, Max_Objects
 @@drawAllBlocks:
 	push cx
 	cmp [Xpos_Blocks + si], 301 ; if this is out of screen dont draw
@@ -1570,7 +1660,7 @@ proc Erase_Block
 	pusha
 
 	xor si, si
-	mov cx, 5
+	mov cx, Max_Objects
 	xor bp, bp
 @@drawAllBlocks:
 	push cx
@@ -1639,7 +1729,7 @@ proc Draw_Triangle
 	
 	xor si, si
 	xor bp, bp
-	mov cx, 5
+	mov cx, Max_Objects
 @@drawTriangles:
 	push cx
 	cmp [Xpos_Triangle + si], 301 ; if this is out of screen dont draw
@@ -1684,7 +1774,7 @@ proc Erase_Triangle
 	
 	xor si, si
 	xor bp, bp
-	mov cx, 5
+	mov cx, Max_Objects
 @@drawTriangles:
 	push cx
 	
@@ -1730,7 +1820,7 @@ proc Draw_Tower
 	
 	xor si, si
 	xor bp, bp
-	mov cx, 3
+	mov cx, Max_Objects_Towers
 @@drawAllTowers:
 	push cx
 	cmp [Xpos_Tower + si], 301
@@ -1807,7 +1897,7 @@ proc Erase_Tower
 	
 	xor si, si
 	xor bp, bp
-	mov cx, 3
+	mov cx, Max_Objects_Towers
 @@eraseAllTowers:
 	push cx
 	cmp [Xpos_Tower + si], 301
@@ -2712,11 +2802,12 @@ proc Level_One
 @@move_objects:
 	call Erase_All
 	
-	sub [Xpos_Triangle], 5
-	cmp [Xpos_Triangle], 64000
+	mov ax, MovingObjectsXSpeed
+	sub [Xpos_Triangle], ax
+	cmp [Xpos_Triangle], OutOfScreenX
 	ja @@end_level
-	sub [Xpos_Tower],5
-	sub [Xpos_Blocks], 5
+	sub [Xpos_Tower],ax
+	sub [Xpos_Blocks], ax
 	
 	call Draw_All
 	jmp @@end
@@ -2753,11 +2844,11 @@ proc Level_Two
 @@move_objects:
 	call Erase_All
 	
-	mov ax, 5
+	mov ax, MovingObjectsXSpeed
 
 	sub [Xpos_Triangle], ax
 	sub [Xpos_Triangle + 2], ax
-	cmp [Xpos_Triangle + 2], 64000
+	cmp [Xpos_Triangle + 2], OutOfScreenX
 	ja @@end_level
 	
 	sub [Xpos_Tower], ax
@@ -2803,7 +2894,7 @@ proc Level_Three
 	
 	call Erase_All
 	
-	mov ax, 6
+	mov ax, MovingObjectsXSpeed
 	
 	sub [Xpos_Blocks], ax
 	sub [Xpos_Triangle], ax
@@ -2812,7 +2903,7 @@ proc Level_Three
 	sub [Xpos_Tower], ax
 	sub [Xpos_Blocks + 2], ax
 	sub [Xpos_Points], ax
-	cmp [Xpos_Points], 64000
+	cmp [Xpos_Points], OutOfScreenX
 	ja @@end_level
 	
 @@draw:
@@ -2820,7 +2911,7 @@ proc Level_Three
 	jmp @@end
 	
 @@end_level:
-	cmp [Xpos_Tower], 64000 ; if we ate the bonus point before the level has ended ot will finish the level - so we will check if the tower has exited the screen
+	cmp [Xpos_Tower], OutOfScreenX ; if we ate the bonus point before the level has ended ot will finish the level - so we will check if the tower has exited the screen
 	jb @@draw
 	mov [Objects_Placed], 0
 	
@@ -2858,14 +2949,14 @@ proc Level_Four
 @@move_objects:
 	call Erase_All
 	
-	mov ax, 5
+	mov ax, MovingObjectsXSpeed
 	sub [Xpos_Blocks], ax
 	sub [Xpos_Blocks + 2], ax
 	sub [Xpos_Tower], ax
 	sub [Xpos_Tower + 2], ax
 	sub [Xpos_Triangle], ax
 	sub [Xpos_Triangle + 2], ax
-	cmp [Xpos_Triangle + 2], 64000
+	cmp [Xpos_Triangle + 2], OutOfScreenX
 	ja @@end_level
 	
 	call Draw_All
@@ -2907,14 +2998,14 @@ proc Level_Five
 @@move_objects:
 	call Erase_All
 	
-	mov ax, 5
+	mov ax, MovingObjectsXSpeed
 	sub [Xpos_Triangle], ax
 	sub [Xpos_Blocks], ax
 	sub [Xpos_Blocks + 2], ax
 	sub [Xpos_Triangle + 2], ax
 	sub [Xpos_Tower], ax
 	sub [Xpos_Triangle + 4], ax
-	cmp [Xpos_Triangle + 4], 64000
+	cmp [Xpos_Triangle + 4], OutOfScreenX
 	ja @@end_level
 	
 	call Draw_All
@@ -2956,14 +3047,14 @@ proc Level_Six
 @@move_objects:
 	call Erase_All
 	
-	mov ax, 5
+	mov ax, MovingObjectsXSpeed
 	sub [Xpos_Tower], ax
 	sub [Xpos_Points], ax
 	sub [Xpos_Blocks], ax
 	sub [Xpos_Blocks + 2], ax
 	sub [Xpos_Triangle], ax
 	sub [Xpos_Tower + 2], ax
-	cmp [Xpos_Tower + 2], 6400
+	cmp [Xpos_Tower + 2], OutOfScreenX
 	ja @@end_level
 	
 	
@@ -3005,13 +3096,13 @@ proc Level_Seven
 @@move_objects:
 	call Erase_All
 	
-	mov ax, 5
+	mov ax, MovingObjectsXSpeed
 	sub [Xpos_Tower], ax
 	sub [Xpos_Blocks], ax
 	sub [Xpos_Triangle], ax
 	sub [Xpos_Triangle + 2], ax
 	sub [Xpos_Tower + 2], ax
-	cmp [Xpos_Tower + 2], 6400
+	cmp [Xpos_Tower + 2], OutOfScreenX
 	ja @@end_level
 	
 	
@@ -3049,11 +3140,11 @@ proc Level_Eight
 @@move_objects:
 	call Erase_All
 	
-	mov ax, 5
+	mov ax, MovingObjectsXSpeed
 	sub [Xpos_Tower], ax
 	sub [Xpos_Points], ax
 	sub [Xpos_Tower + 2], ax
-	cmp [Xpos_Tower + 2], 6400
+	cmp [Xpos_Tower + 2], OutOfScreenX
 	ja @@end_level
 	
 	
@@ -3093,12 +3184,12 @@ proc Level_Nine
 @@move_objects:
 	call Erase_All
 	
-	mov ax, 5
+	mov ax, MovingObjectsXSpeed
 	sub [Xpos_Blocks], ax
 	sub [Xpos_Blocks + 2], ax
 	sub [Xpos_Triangle], ax
 	sub [Xpos_Tower], ax
-	cmp [Xpos_Tower], 6400
+	cmp [Xpos_Tower], OutOfScreenX
 	ja @@end_level
 	
 	
@@ -3140,13 +3231,13 @@ proc Level_Ten
 @@move_objects:
 	call Erase_All
 	
-	mov ax, 5
+	mov ax, MovingObjectsXSpeed
 	sub [Xpos_Blocks], ax
 	sub [Xpos_Blocks + 2], ax
 	sub [Xpos_Triangle], ax
 	sub [Xpos_Points], ax
 	sub [Xpos_Tower], ax
-	cmp [Xpos_Triangle], 6400
+	cmp [Xpos_Triangle], OutOfScreenX
 	ja @@end_level
 	
 	
@@ -3188,13 +3279,13 @@ proc Level_Eleven
 @@move_objects:
 	call Erase_All
 	
-	mov ax, 5
+	mov ax, MovingObjectsXSpeed
 	sub [Xpos_Blocks], ax
 	sub [Xpos_Blocks + 2], ax
 	sub [Xpos_Triangle], ax
 	sub [Xpos_Points], ax
 	sub [Xpos_Tower], ax
-	cmp [Xpos_Triangle], 6400
+	cmp [Xpos_Triangle], OutOfScreenX
 	ja @@end_level
 	
 	
@@ -3237,20 +3328,20 @@ proc Level_Twelve
 @@move_objects:
 	call Erase_All
 	
-	mov ax, 5
+	mov ax, MovingObjectsXSpeed
 	sub [Xpos_Blocks], ax
 	sub [Xpos_Triangle], ax
 	sub [Xpos_Points], ax
 	sub [Xpos_Tower], ax
 	sub [Xpos_Blocks + 2], ax
-	cmp [Xpos_Points], 64000
+	cmp [Xpos_Points], OutOfScreenX
 	ja @@end_level
 
 @@cont:	
 	call Draw_All
 	jmp @@end
 @@end_level:
-	cmp [Xpos_Blocks + 2], 64000
+	cmp [Xpos_Blocks + 2], OutOfScreenX
 	jb @@cont
 	
 	mov [Objects_Placed], 0
