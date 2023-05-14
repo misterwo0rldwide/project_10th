@@ -1169,7 +1169,12 @@ proc Reset
 	ret
 endp Reset
 
-;writes all scores in end screen
+;================================================
+; Description -  Writes all scores and best holder to the right place on screen
+; INPUT: None
+; OUTPUT: scores and name on screen
+; Register Usage: None
+;================================================
 proc WriteScore
 ;our score
 	;we will change the place of the writing
@@ -1247,8 +1252,12 @@ proc WriteScore
 	ret
 endp WriteScore
 
-;takes our final score and turn it into text to print in final screen
-;puts it in "PlayerScoreTXT"
+;================================================
+; Description -  Takes the player score and turn it into readable number and put it in var
+; INPUT: None
+; OUTPUT: Four bytes in "PlayerScoreTXT" in DS
+; Register Usage: None
+;================================================
 proc ChangeScoreToTXT
 	pusha
 	
@@ -1296,7 +1305,6 @@ proc DrawBackground
 	popa
 	ret
 endp DrawBackground
-
 
 ;================================================
 ; Description -  in the name screen it requirs a name to be entered, so we will check if any chars have been entered, if not print an error msg
@@ -1353,7 +1361,12 @@ proc Enter_Name
 	ret
 endp Enter_Name
 
-;when using the keyboard by ports we need to clear the buffer, if not it will throw all the chars we pressed when getting a chance
+;================================================
+; Description -  clear keyboard buffer - because using ports we need the keyboard buffer so it wont print the keys in the name area or after the game has ended
+; INPUT: None
+; OUTPUT: keyboard buffer in memory cleared
+; Register Usage: None
+;================================================
 proc clearkeyboardbuffer
 	push es
 	
@@ -1405,8 +1418,12 @@ proc DrawCube
 	ret
 endp DrawCube
 
-;for rotation - we check the height and then pick the right frame for it
-;returns in dx and offset of the file we want to print
+;================================================
+; Description -  picks the right frame/matrix relying on the cube situation
+; INPUT: None
+; OUTPUT: offset of the var that holds our matrix frame in bx
+; Register Usage: None
+;================================================
 proc Pick_matrix_by_height
 	
 	cmp [timeInAir], 0 ; if timer is zero we need to print the 90 degrees even if not on ground
@@ -1570,7 +1587,12 @@ proc Pick_matrix_by_height
 	ret
 endp Pick_matrix_by_height
 
-;we will draw the saved background on the cube to erase it
+;================================================
+; Description -  draws the saved background on the cube
+; INPUT: None
+; OUTPUT: background drawn and by that "erasing" the cube
+; Register Usage: None
+;================================================
 proc Erase_Cube
 	pusha
 	mov ax, [Ypos]
@@ -1591,6 +1613,12 @@ proc Erase_Cube
 	ret
 endp Erase_Cube
 
+;================================================
+; Description -  gets the sizes of the cube and calls another function that transfers the data on screen to data in DS
+; INPUT: None
+; OUTPUT: Saved background of cube in DS
+; Register Usage: None
+;================================================
 proc Copy_Background_Cube
 	pusha
 	
@@ -1606,8 +1634,12 @@ proc Copy_Background_Cube
 	ret
 endp Copy_Background_Cube
 
-;block - we need to check where is the cube to know how to print it
-;goes through every block and draws if on screen
+;================================================
+; Description -  checks if the block is on screen, if yes draws the cube and save their background - goes one by one and checks their X position
+; INPUT: None
+; OUTPUT: blocks drawn on screen and their saved background
+; Register Usage: None
+;================================================
 proc DrawBlock
 	pusha
 	
@@ -1654,8 +1686,12 @@ proc DrawBlock
 	ret
 endp DrawBlock
 
-;will print the saved background on the screen and by doing this it will erase the block
-;will check if the block is alive and then print its save background
+;================================================
+; Description -  prints the saved background on the position
+; INPUT: None
+; OUTPUT: "erases" the cube from screen
+; Register Usage: None
+;================================================
 proc Erase_Block
 	pusha
 
@@ -1695,9 +1731,14 @@ proc Erase_Block
 	ret
 endp Erase_Block
 
-;draws blocks using the stack - mainly for drawing towers
+;================================================
+; Description -  gets the X and Y from stack and prints a block, this is used for printing towers when needing to print multiple blocks one by one
+; INPUT:
 ;[bp + 4] = x
 ;[bp + 6] = y
+; OUTPUT: blocks drawn on X and Y position on screen
+; Register Usage: None
+;================================================
 proc DrawBlock_Stack
 	push bp
 	mov bp, sp
@@ -1723,7 +1764,12 @@ proc DrawBlock_Stack
 	ret 4
 endp DrawBlock_Stack
 
-
+;================================================
+; Description -  Checks each triangle and sees if they are on screen, if yes draw and save the background
+; INPUT: None
+; OUTPUT: saved background and print triangle on screen
+; Register Usage: None
+;================================================
 proc Draw_Triangle
 	pusha
 	
@@ -1768,7 +1814,12 @@ proc Draw_Triangle
 	ret
 endp Draw_Triangle
 
-;will check if a triangle is on map, if yes print it
+;================================================
+; Description -  checks all the triangles and sees if they are on screen, if so print the saved background
+; INPUT: None
+; OUTPUT: offset of the var that holds our matrix frame in bx
+; Register Usage: None
+;================================================
 proc Erase_Triangle
 	pusha
 	
@@ -1862,7 +1913,12 @@ proc Draw_Tower
 	ret
 endp Draw_Tower
 
-;we have a copy background var that holds 1620 bytes - for maximum height of five blocks
+;================================================
+; Description - copies the background of the tower in one big var, takes the X and Y and copies the bacgkround
+; INPUT: None
+; OUTPUT: Var in DS which holds the bacgkround of the whole tower
+; Register Usage: None
+;================================================
 proc Copy_Background_Tower
 	pusha
 	
@@ -1891,7 +1947,12 @@ proc Copy_Background_Tower
 	ret
 endp Copy_Background_Tower
 
-;goes each block and paints on it his background
+;================================================
+; Description - checks if the X of each tower is on screen, if so prints its saved background
+; INPUT: None
+; OUTPUT: erases the tower from the screen
+; Register Usage: None
+;================================================
 proc Erase_Tower
 	pusha
 	
@@ -1934,6 +1995,12 @@ proc Erase_Tower
 	ret
 endp Erase_Tower
 
+;================================================
+; Description - draw the point on the X and Y on screen
+; INPUT: None
+; OUTPUT: draw the point matrix on screen
+; Register Usage: None
+;================================================
 proc DrawPoint
 	pusha
 	
@@ -1963,6 +2030,12 @@ proc DrawPoint
 	ret
 endp DrawPoint
 
+;================================================
+; Description - copies the bacgkround of the point
+; INPUT: None
+; OUTPUT: saved bacgkround as a matrix in DS
+; Register Usage: None
+;================================================
 proc Copy_Background_Points
 
 	mov bx, offset matrix_erase_point
@@ -1972,6 +2045,12 @@ proc Copy_Background_Points
 	ret
 endp Copy_Background_Points
 
+;================================================
+; Description - prints the saved background on point
+; INPUT: None
+; OUTPUT: "erases" the point from screen
+; Register Usage: None
+;================================================
 proc Erase_point
 	pusha
 	
@@ -2106,7 +2185,12 @@ proc Check_floor_Under
 	ret
 endp Check_floor_Under
 
-;check if our cube has hit any moving objects
+;================================================
+; Description - calls multiple functions to check if we hit a bonus point or died
+; INPUT: None
+; OUTPUT: if the player has hit a block or triangle the game will end, if it hit a bonus point the counter will go up
+; Register Usage: None
+;================================================
 proc Check_Hit
 	pusha
 	
@@ -2132,7 +2216,12 @@ proc Check_Hit
 	ret
 endp Check_Hit
 
-;check if we are about to hit a point
+;================================================
+; Description - goes through multiple x and y points on that close to the cube and checks if this is in the point range
+; INPUT: None
+; OUTPUT: if we hit the bonus point the counter will go up
+; Register Usage: None
+;================================================
 proc Check_Point
 	pusha
 	
@@ -2217,9 +2306,15 @@ proc Check_Point
 	ret
 endp Check_Point
 
-;we get the cube X and Y from the registers cx and dx
-;ax -left side of objects, si - right side of the objects, bx - upper side, di - down side
-;retun bp 1 if we hit bonus point
+;================================================
+; Description - checks if the given x and y is in the range you give it
+; INPUT:
+;		we get the cube X and Y from the registers cx and dx
+;		ax -left side of objects, si - right side of the objects, bx - upper side, di - down side
+;
+; OUTPUT: retun bp 1 if we hit bonus point if not bp is zero
+; Register Usage: None
+;================================================
 proc CheckIsInPoint
 	
 	xor bp, bp
@@ -2246,7 +2341,12 @@ proc CheckIsInPoint
 	ret
 endp CheckIsInPoint
 
-;if we hit blocks al will be one
+;================================================
+; Description - checks if right infront of us there is black or white, if so it means we died
+; INPUT: None
+; OUTPUT: if we died it will simble with a bool that we died
+; Register Usage: None
+;================================================
 proc Check_Blocks
 	;we will use the 25 numbers because the maximun size of the cube is 25*25 while rotation
 	;we will check three pixels to the right up and down
@@ -2290,9 +2390,12 @@ proc Check_Blocks
 	ret
 endp Check_Blocks
 
-;if we hit a triange al will be one
-;we will check left side down and right side down
-;this will check all triangle at once
+;================================================
+; Description - will check if one of a the walls is in the triangle range of x and y - because the cube moves fast we will make the range of the triangle a little bit bigger
+; INPUT: None
+; OUTPUT: if we hit a triange al will be one
+; Register Usage: None
+;================================================
 proc Check_Triangle
 
 	xor si, si
@@ -2403,8 +2506,12 @@ proc Check_Triangle
 	ret
 endp Check_Triangle
 
-;in case the jump has ended and we are not on the floor
-;this will check if we have floor under us while falling from a block - when not jumpimg
+;================================================
+; Description - in case the jump has ended and we are not on the floor, this will check if we have floor under us while falling from a block - when not jumpimg
+; INPUT: None
+; OUTPUT: if we are in the air it will keep on descending, of it detects floor it will stop falling
+; Register Usage: None
+;================================================
 proc Check_Fall
 	pusha
 	;we need to go down - no floor
@@ -2454,7 +2561,12 @@ proc Check_Fall
 	ret
 endp Check_Fall
 
-;will check for the color black above the cube - only be used when going up
+;================================================
+; Description - will check for the color black above the cube - only be used when going up
+; INPUT: None
+; OUTPUT: if there is black above us while jumping it will simble that the player has died
+; Register Usage: None
+;================================================
 proc Check_Above
 	push 0a000h
 	pop es
@@ -2498,16 +2610,14 @@ proc Check_Above
 endp Check_Above
 
 ;================================================
-; Description -  goes up until going 30 vertical up
+; Description -  firstly, it will see if it already calculated the maximum height from the point of jumping
+;				it will also calculate the middle height, until the middle height it will go at a certain speed, if above the middle height it will slow the speed of ascending
 ; INPUT: None
-; OUTPUT: cube goes up
+; OUTPUT: Cubes' Ypos goes down
 ; Register Usage: None
 ;================================================
 proc Cube_Ascend
 	pusha
-	
-	cmp [Is_Going_up], 0 ; checks if we even go up
-	je @@end ; if not go to end
 	
 	mov [Is_Falling], 0
 	mov [can_jump], 0
@@ -2560,9 +2670,9 @@ endp Cube_Ascend
 
 
 ;================================================
-; Description -  goes down when there is not white under the cube
+; Description -  goes down when there is not white under the cube - only be used after the ascend part has finished
 ; INPUT: None
-; OUTPUT: cube goes down
+; OUTPUT: Cubes' Ypos goes up
 ; Register Usage: None
 ;================================================
 proc Descending
@@ -2585,8 +2695,12 @@ proc Descending
 	ret
 endp Descending
 
-;checks if we are on cube - only be used after finishing a jump
-;will sign that we are falling
+;================================================
+; Description - works with the bool "Is_Falling", it will check in case we are not jumping where the cube is - on a block or in the air
+; INPUT: None
+; OUTPUT: if we are not jumping and in the air it will symbolise that we are currently falling
+; Register Usage: None
+;================================================
 proc Check_Where_Cube
 	push dx
 	cmp [Is_Going_up], 1
@@ -2627,8 +2741,13 @@ proc Check_Where_Cube
 	ret
 endp Check_Where_Cube
 
-;main function of the cube
-;checks the state of the cube with bools, and starts each function
+;================================================
+; Description - checks each boolean and works with it, it will do one of the three moves - ascend, descend, fall
+;				it will erase the cube, move it, then draw it, after it will check if we died and if we are falling
+; INPUT: None
+; OUTPUT: changes the Ypos of the cube according to the booleans
+; Register Usage: None
+;================================================
 proc Cube_Move
 	pusha
 	
@@ -2673,7 +2792,12 @@ proc Cube_Move
 	ret
 endp Cube_Move
 
-;picks a random level each time a level has ended
+;================================================
+; Description - Generating a random random (the number of levels), then proceeds to play the level, when a level has ended it will generate again a random number
+; INPUT: None
+; OUTPUT: runs the current level
+; Register Usage: None
+;================================================
 proc PickLevel
 	pusha
 	
@@ -3350,6 +3474,12 @@ proc Level_Twelve
 	ret
 endp Level_Twelve
 
+;================================================
+; Description - draw all the objects that are currently on screen
+; INPUT: None
+; OUTPUT: objects on screen
+; Register Usage: None
+;================================================
 proc Draw_All
 	call Draw_Tower
 	call Draw_Triangle
@@ -3358,6 +3488,12 @@ proc Draw_All
 	ret
 endp Draw_All
 
+;================================================
+; Description - erase all the objects that are currently on screen
+; INPUT: None
+; OUTPUT: objects erased on screen
+; Register Usage: None
+;================================================
 proc Erase_All
 	call Erase_Tower
 	call Erase_point
@@ -3366,7 +3502,12 @@ proc Erase_All
 	ret
 endp Erase_All
 
-;will take all the frames of rotation and turn them into matrix
+;================================================
+; Description - the frames of the cube are stored in BMP files, after the name of the player was entered it will tranfer every frame to matrix in memory
+; INPUT: None
+; OUTPUT: every frame of the cube is saved in DS
+; Register Usage: None
+;================================================
 proc Transfer_bmp_matrix
 	;90 degrees
 	mov [CurrentSize], 18
@@ -3498,9 +3639,12 @@ proc Transfer_bmp_matrix
 	ret
 endp Transfer_bmp_matrix
 
-;bmp files
-
-
+;================================================
+; Description - shows a bmp picture on screen according to the vars
+; INPUT: The size of the picture and the place on screen in DS vars - "BmpRowSize", BmpRowSize", "BmpTop", "BmpLeft" and in the DX the offset of the file name
+; OUTPUT: BMP picture on screen
+; Register Usage: None
+;================================================
 proc OpenShowBmp near
 	
 	 
@@ -3523,7 +3667,12 @@ proc OpenShowBmp near
 	ret
 endp OpenShowBmp
 
-;for making a bmp into matrix
+;================================================
+; Description - transfers a bmp picture to memory, by doing all the procedures but instead of putting it on screen we will put it in data
+; INPUT: The offset of the matrix we want to copy to in - "matrix", the the size of the picture in "CurrentSize" and the offset of the File name in DX
+; OUTPUT: BMP picture stored in DS
+; Register Usage: None
+;================================================
 proc CopyBmp near
 		 
 	call OpenBmpFile
@@ -3544,6 +3693,12 @@ proc CopyBmp near
 	ret
 endp CopyBmp
 
+;================================================
+; Description - closes a file with DX offset of the file
+; INPUT: offset of the file name in dx
+; OUTPUT: closes the file
+; Register Usage: None
+;================================================
 proc CloseBmpFile near
 	mov ah,3Eh
 	mov bx, [FileHandle]
@@ -3551,8 +3706,12 @@ proc CloseBmpFile near
 	ret
 endp CloseBmpFile
  
-
-; input dx filename to open
+;================================================
+; Description - opens a file, if didnt manage to open (carry flag equals one) it will sign that it didnt manage to open
+; INPUT: offset of the file name in dx
+; OUTPUT: open the file
+; Register Usage: None
+;================================================
 proc OpenBmpFile	near						 
 	mov ah, 3Dh
 	xor al, al
@@ -3567,7 +3726,12 @@ proc OpenBmpFile	near
 	ret
 endp OpenBmpFile
 
-
+;================================================
+; Description - read the first 54 bytes from the Bmp picture - the header
+; INPUT: offset of the file name in dx
+; OUTPUT: Header stored in DS
+; Register Usage: None
+;================================================
 proc ReadBmpHeader	near					
 	push cx dx
 	
@@ -3581,8 +3745,12 @@ proc ReadBmpHeader	near
 	ret
 endp ReadBmpHeader
 
-
-
+;================================================
+; Description - reads the bmp pallete and store it in memeory
+; INPUT: offset of the file name in dx
+; OUTPUT: 1024 bytes in DS - 256 * 4
+; Register Usage: None
+;================================================
 proc ReadBmpPalette near ; Read BMP file color palette, 256 colors * 4 bytes (400h)
 						 ; 4 bytes for each color BGR + null)			
 	push cx dx
@@ -3593,7 +3761,6 @@ proc ReadBmpPalette near ; Read BMP file color palette, 256 colors * 4 bytes (40
 	int 21h
 	
 	pop dx cx
-	
 	ret
 endp ReadBmpPalette
 
@@ -3601,12 +3768,14 @@ endp ReadBmpPalette
 ; Will move out to screen memory the colors
 ; video ports are 3C8h for number of first color
 ; and 3C9h for all rest
+; takes each color from the bmp pallete we copied and puts it in 3c9h port
+; each color consists 0-255 of green red and black, so to store all of them in one byte we will lower the resolution (dividing by four)
 proc CopyBmpPalette near
 	push cx dx
 	
 	mov si,offset Palette
 	mov cx,256
-	mov dx,3C8h
+	mov dx,3C8h ; because you can't reach to port above byte with free number, so we need to put the number of the port in dx then we can reach it
 	mov al,0  ; black first							
 	out dx,al ;3C8h
 	inc dx	  ;3C9h
@@ -3620,7 +3789,7 @@ CopyNextColor:
 	mov al,[si] 		; Blue.				
 	shr al,2            
 	out dx,al 							
-	add si,4 			; Point to next color.  (4 bytes for each color BGR + null)				
+	add si,4 			; Point to next color.  (4 bytes for each color BGR + null (invisble color))				
 	loop CopyNextColor
 	
 	pop dx cx
@@ -3687,19 +3856,23 @@ proc ShowBMP
 	ret
 endp ShowBMP 
 
-
+;================================================
+; Description - reads line by line the content inside of the bmp picture, and store it in DS upside down
+; INPUT: "matrix" - offset of var, "CurrentSize" - size of the cube in the frame, DX the offset of the bmp picture
+; OUTPUT: bmp picture stored in memory
+; Register Usage: None
+;================================================
 ;this will be used for transfering the picture from bmp to matrix
 proc MatrixBMP 
 ; BMP graphics are saved upside-down.
 ; Read the graphic line by line (BmpRowSize lines in VGA format),
-; displaying the lines from bottom to top.
+; saving the lines from bottom to top.
 	push cx
 	
-	mov ax, ds ; we will make es to ds and make di the offset of var we want to copy the picture to
-	mov es, ax
+	push ds ; we will make es to ds and make di the offset of var we want to copy the picture to
+	pop es
 	
 	mov cx,[CurrentSize]
-	
  
 	mov ax,[CurrentSize] ; row size must dived by 4 so if it less we must calculate the extra padding bytes
 	xor dx,dx
@@ -3767,31 +3940,8 @@ proc MatrixBMP
 	ret 
 endp MatrixBMP 
 
-; Read 54 bytes the Header
-proc PutBmpHeader	near					
-	mov ah,40h
-	mov bx, [FileHandle]
-	mov cx,54
-	mov dx,offset Header
-	int 21h
-	ret
-endp PutBmpHeader
- 
-
-
-
-proc PutBmpPalette near ; Read BMP file color palette, 256 colors * 4 bytes (400h)
-						 ; 4 bytes for each color BGR + null)			
-	mov ah,40h
-	mov cx,400h
-	mov dx,offset Palette
-	int 21h
-	ret
-endp PutBmpPalette
-
-
 ;================================================
-; Description -  draws a bmp picture
+; Description -  draws a bmp picture on the right place on screen, if something didn't work it will sign that and won't print the picture and print an error message
 ; INPUT: stack - order of push - x, y, col size, row size and dx needs to be the offset of file name
 ; OUTPUT: picture on screen in visual mode
 ; Register Usage: None
@@ -3830,9 +3980,7 @@ exitError:
 	
 	pop di si dx cx bx ax bp
 	ret 8
-endp DrawPictureBmp	 
-
-
+endp DrawPictureBmp
 
 ;================================================
 ; Description -  sets to graphics mode
@@ -3848,13 +3996,12 @@ proc SetGraphics
 	ret
 endp SetGraphics
 
-;matrix
-
-; in dx how many cols 
-; in cx how many rows
-; in matrix - the bytes
-; in di start byte in screen (0 64000 -1)
-
+;================================================
+; Description - for using an objects that has even number of width (bacuse we can use rep movsw), it will put the given matrix on screen
+; INPUT: "matrix" - offset of matrix, CX col size, DX row size and DI place on screen
+; OUTPUT: puts the matrix bytes on screen
+; Register Usage: None
+;================================================
 proc putMatrixInScreen
 	pusha
 	
@@ -3882,46 +4029,12 @@ proc putMatrixInScreen
     ret
 endp putMatrixInScreen
 
-;for using an objects that has either an invisble color or has odd number of width
-proc putCubeInScreen
-	pusha
-	
-	mov ax, 0A000h
-	mov es, ax
-	cld
-	
-	mov si,[matrix]
-	
-@@NextRow:	
-	push cx
-	
-	mov cx, dx
-	
-@@draw_line:	; Copy line to the screen
-	lodsb
-	cmp al, 1
-	je @@end ; if it is equal to one we need to skip it
-	stosb
-	dec di
-@@end:
-	inc di
-	loop @@draw_line
-	
-	sub di,dx
-	add di, 320
-	
-	
-	pop cx
-	loop @@NextRow	
-	
-	popa
-    ret
-endp putCubeInScreen
-
-; in dx how many cols 
-; in cx how many rows
-; in matrix - the offset of the var we want to copy to
-; in di start byte in screen (0 64000 -1)
+;================================================
+; Description - for using an objects that has even number of width (bacuse we can use rep movsw), it will put the given matrix in data
+; INPUT: "matrix" - offset of matrix, CX col size, DX row size and DI place on screen
+; OUTPUT: puts the matrix bytes in data
+; Register Usage: None
+;================================================
 proc putMatrixInData
 	pusha
 	push ds
@@ -3961,7 +4074,53 @@ proc putMatrixInData
     ret
 endp putMatrixInData
 
-;for using an objects that has odd number of width
+;================================================
+; Description - for using an objects that has either an invisble color or has odd number of width, it will put the given matrix on screen
+; INPUT: "matrix" - offset of matrix, CX col size, DX row size and DI place on screen
+; OUTPUT: puts the matrix bytes on screen
+; Register Usage: None
+;================================================
+proc putCubeInScreen
+	pusha
+	
+	mov ax, 0A000h
+	mov es, ax
+	cld
+	
+	mov si,[matrix]
+	
+@@NextRow:	
+	push cx
+	
+	mov cx, dx
+	
+@@draw_line:	; Copy line to the screen
+	lodsb
+	cmp al, 1
+	je @@end ; if it is equal to one we need to skip it
+	stosb
+	dec di
+@@end:
+	inc di
+	loop @@draw_line
+	
+	sub di,dx
+	add di, 320
+	
+	
+	pop cx
+	loop @@NextRow	
+	
+	popa
+    ret
+endp putCubeInScreen
+
+;================================================
+; Description - for using an objects that has either an invisble color or has odd number of width, it will put the given matrix in data
+; INPUT: "matrix" - offset of matrix, CX col size, DX row size and DI place on screen
+; OUTPUT: puts the matrix bytes in data
+; Register Usage: None
+;================================================
 proc putCubeInData
 	pusha
 	
