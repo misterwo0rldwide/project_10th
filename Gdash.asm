@@ -229,7 +229,7 @@ DATASEG
 	; -- FILES --
 	
 	; background bmp picture var
-    ScrLine db Max_Bmp_Width + 4 dup (?)  ; One Color line read buffer
+    ScrLine db Max_Bmp_Width dup (?)  ; One Color line read buffer
 
 	;BMP File data
 	FileHandle dw ?
@@ -2299,12 +2299,36 @@ proc Check_Point
 @@catch_point:
 	inc [BonusPointsCounter] ; sign that we hit a bonus point
 	call Erase_point
+	call PrintPoints
 	mov [Xpos_Points], Starting_Pos
 
 @@end:
 	popa
 	ret
 endp Check_Point
+
+;================================================
+; Description - moves to AX the total bonus points catched and prints it
+; INPUT: None
+; OUTPUT: number of points printed to screen
+; Register Usage: None
+;================================================
+proc PrintPoints
+	push ax bx
+	
+	mov ah, 2 ; move the pointer to the same place each time
+	xor bh, bh
+	mov dl, 1
+	mov dh, 1
+	int 10h
+	
+	xor ax, ax
+	mov al, [BonusPointsCounter]
+	call printAxDec ; print the total points
+
+	pop bx ax
+	ret
+endp PrintPoints
 
 ;================================================
 ; Description - checks if the given x and y is in the range you give it
@@ -4006,19 +4030,22 @@ proc putMatrixInScreen
 	pusha
 	
 	mov ax, 0A000h
-	mov es, ax
-	cld
+	mov es, ax ; point to screen memory (graphics mode)
+	cld ; clear direction flag
 	
 	mov si,[matrix]
 	
 @@NextRow:	
-	push cx
+	push cx ; save cx
 	
 	mov cx, dx
-	shr cx, 1
-	rep movsw
+	sub cx, 2 ; because of the width of the objects in this game (18), when using movsd (doubleword) we need the width to be divided by four
+			  ; so we will sub cx 2 and divide it by four so it will do movsd only four times
+	shr cx, 2
+	rep movsd
+	movsw ; this will be the remaining 2 bytes because we took 2 bytes to use movsd
 	
-	sub di,dx
+	sub di,dx ; go down a line
 	add di, 320
 	
 	
@@ -4037,31 +4064,36 @@ endp putMatrixInScreen
 ;================================================
 proc putMatrixInData
 	pusha
-	push ds
+	push ds ; save the used registers
 	push es
 	
 	mov ax, 0A000h
-	mov es, ax
-	cld
+	mov es, ax ; point to graphics memory
+	cld ; clear direction flag
 
 	mov si,[matrix]
 	
-	;for saving the background faster we will switch the registers for enabling rep movsw
+	;for saving the background faster we will switch the registers for enabling rep movsw and rep movsd
+	;normal movsb/movsw/movsd will work by doing [es:di] = [ds:si]
+	;in asm 8086 there is not any op for this function so we will just switch the registers to be able to transfer data fast
 	push es
 	push ds
 	
 	pop es
 	pop ds
 	
-	xchg si, di
+	xchg si, di ; switch si and di
 @@NextRow:	
-	push cx
+	push cx ; save cx
 	
 	mov cx, dx
-	shr cx, 1 
-	rep movsw
+	sub cx, 2 ; because of the width of the objects in this game (18), when using movsd (doubleword) we need the width to be divided by four
+			  ; so we will sub cx 2 and divide it by four so it will do movsd only four times
+	shr cx, 2
+	rep movsd
+	movsw ; this will be the remaining 2 bytes because we took 2 bytes to use movsd
 	
-	sub si,dx
+	sub si,dx ; going down a line
 	add si, 320
 	
 	
@@ -4089,7 +4121,7 @@ proc putCubeInScreen
 	
 	mov si,[matrix]
 	
-@@NextRow:	
+@@NextRow:
 	push cx
 	
 	mov cx, dx
@@ -4225,6 +4257,46 @@ Proc MakeMask
     pop bx
 	ret
 endp  MakeMask
+
+;================================================
+; Description - prints in ascii chars the number in ax - base 10
+; INPUT: Number in AX
+; OUTPUT: print on screen ax content
+; Register Usage: None
+;================================================
+proc printAxDec
+	push bx dx cx
+
+	mov cx,0   ; will count how many time we did push 
+	mov bx,10  ; the divider
+
+put_next_to_stack:
+	xor dx,dx ; make dx zero for div
+	div bx ; divide by ten
+	add dl, '0' ; make the modulue a real number
+	; dl is the current LSB digit 
+	; we cant push only dl so we push all dx
+	push dx ; save the ascii char in stack
+	inc cx
+	cmp ax,9   ; check if it is the last time to div
+	jg put_next_to_stack ; if above continue to push every digit
+	cmp ax,0
+	jz pop_next_from_stack  ; jump if ax was totally 0
+	add al,30h  ; if got to last digit make it a real number and print it
+	mov dl, al  ; because we use this interrupt the char needs to be in dl
+	mov ah, 2h
+	int 21h        ; show first digit MSB
+
+pop_next_from_stack: 
+	pop ax    ; remove all rest LIFO (reverse) (MSB to LSB)
+	mov dl, al
+	mov ah, 2h
+	int 21h        ; show all rest digits
+	loop pop_next_from_stack ; will do it cx times - cx is the counter so the amount of digits
+	
+	pop cx dx bx
+	ret
+endp printAxDec 
 
 EndOfCsLbl:
 END start
