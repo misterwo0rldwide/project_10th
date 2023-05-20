@@ -7,9 +7,12 @@ STACK 100h
 ;For playing this game set DOSBOX to 10000 cycles
 ;cycles=10000
 
-
-;macros
-
+;================================================
+; Description -  draws a full BMP picture on screen
+; INPUT: DX needs to be set for the offset of the file name
+; OUTPUT: Full BMP picture on screen
+; Register Usage: None
+;================================================
 macro DRAW_FULL_BMP
 	;mov dx, ?
 	push 0
@@ -21,37 +24,38 @@ endm DRAW_FULL_BMP
 
 ; -- const variables --
 ;Cube
-Xpos_Cube = 50
+Xpos_Cube = 50 ; the Xpos of the cube won't change in this whole game so we will make it a const
+
 Cube_Max_Size = 25*25 ; the cube reg size is 18*18 but while rotating it changes, so we will put the max size it can get
 
 ;Objetcs
-Max_Objects = 5
+Max_Objects = 5 ; blocks and triangles can appear max five times in one level
 
 Max_Objects_Towers = 3 ; drawing and erasing a tower takes time so the max towers will be three and not five to make the game feels smooth
 
 ;Triangle
-Triangle_Size = 9*18
+Triangle_Size = 9*18 ; triangle height of 9 by width of 18
 
 ;Blocks
-Block_Size = 18*18
+Block_Size = 18*18 ; block height 18 by width of 18
 
 ;Bonus point
-Bonus_Point_Size = 11*6
+Bonus_Point_Size = 11*6 ; bonus point height 11 by width of 6
 
 ;Tower
 Tower_Size = 18*18*5 ; 18*18 = one block, this multiplied by five means maximum of five block
 ;A tower is built from blocks stacked upon eachother therefore we will draw it block by block but erase it like a full objects
 
-Starting_Pos = -1
+Starting_Pos = -1 ; the defult X of all the objects is minus because if it is zero it still counts like it is in the screen
 
 ;bmp
-Max_Bmp_Width = 320
+Max_Bmp_Width = 320 ; the max bmp width is 320 so it will work on every picture we want to print to the screen
 
 ;speed objects
-MovingObjectsXSpeed = 5
+MovingObjectsXSpeed = 5 ; in level speed all of the objects will move five X to the left (minus five X)
 
 ;Xpos to check - of above the objects is out of the screen
-OutOfScreenX = 64000
+OutOfScreenX = 64000 ; this don't need to be the specific number we just want to check if below zero (we can also check by signed numbers)
 
 DATASEG
 ; --------------------------
@@ -59,22 +63,22 @@ DATASEG
 	;random
 	RndCurrentPos dw start ; random label
 
+	; -- player --
+	
+	;score
 	bool_won db ? ; if the player has the best score we will print his name on the final board
 
 	;start over
 	bool_start_over db ? ; will be changed by the player desicion in the end screen - if pressed yes or no
-
-	; -- player --
 	
 	;speed
 	delay dw 75 ; delay between each frame
 	
 	;picked color
 	;these colors will be picked by the player in the start screen
-	OutSideColor db 3fh
-	InsideColor db 9h
+	OutSideColor db 3fh ; defult yellow outside color
+	InsideColor db 9h ; dufult light blue inside color
 
-	
 	;name
 	NamePlayer db 14, 16 dup (?), '$' ; name of the player which is inserted before starting
 	
@@ -98,7 +102,7 @@ DATASEG
 	; -- jump vars --
 	can_jump db 1 ; will sign if we are falling from a platform
 	
-	;rotation
+	;rotation in air
 	timeInAir db ? ; to know which frame to print - 18 frames
 	;it takes 18 frames to make a full jump
 	;so when this timer hits the number 18 it finished the jump
@@ -110,7 +114,7 @@ DATASEG
 	Is_Falling  db ? ; if the cube is currently falling
 	;falling is a state when the cube didnt jump but in air - example: the cube landed on a block and did jump again
 	
-	;height calculation
+	;height calculation for jumping
 	Max_height dw ? ; max height when jumping will be calculated once
 	Middle_Height dw ? ; to slow down mid jump
 	bool_calc_max_height db ? ; if we have calculated max height to not repeat
@@ -120,39 +124,38 @@ DATASEG
 	;cube
 	Ypos dw 143 ; we only need the ypos because the cube wont change its place on screen only will jump - only changes in the ypos
 	
-	
-	; - blocks - 
-	;cube
+	; -- blocks --
 	
 	;we will put in all the objects minus one -1 because we will check if an object is in the map (to know if to draw) by checking if below 301
 	;the reason for 301 is because the objects width is 18
 	;we will only check if below 301 in unsigned numbers
 	;when an objects goes from right to left its Xpos will eventully be 0fffh - so we will only draw an objects if is in 0 - 301 (x range)
-	Xpos_Blocks dw Max_Objects dup (Starting_Pos)
-	Ypos_Blocks dw Max_Objects dup (?)
+	Xpos_Blocks dw Max_Objects dup (Starting_Pos) ; five blocks Xpos set to minus one
+	Ypos_Blocks dw Max_Objects dup (?) ; five blocks Ypos set to ?
 	
 	
-	;Triangle
-	Xpos_Triangle dw Max_Objects dup (Starting_Pos)
-	Ypos_Triangle dw Max_Objects dup (?)
+	; -- Triangle --
+	Xpos_Triangle dw Max_Objects dup (Starting_Pos) ; five triangles Xpos set to minus one
+	Ypos_Triangle dw Max_Objects dup (?) ; five triangles Ypos set to ?
 	
-	;Tower
-	
+	; -- Tower --
 	;when creating towers we will give the height of the tower instead Ypos
-	Xpos_Tower dw Max_Objects_Towers dup (Starting_Pos)
-	Ypos_Tower dw Max_Objects_Towers dup (?) ; ypos is calculated by how many blocks we want
-	Height_Tower dw Max_Objects_Towers dup (?)
+	Xpos_Tower dw Max_Objects_Towers dup (Starting_Pos) ; three towers Xpos set to minus one
+	Ypos_Tower dw Max_Objects_Towers dup (?) ; three towers Ypos to set to ?
+	Height_Tower dw Max_Objects_Towers dup (?) ; three towers number of block set to ?
 	
-	;Bonus Points
-	Xpos_Points dw Starting_Pos
-	Ypos_Points dw ?
+	; -- Bonus Points --
+	Xpos_Points dw Starting_Pos ; one bonus point Xpos set to minus one
+	Ypos_Points dw ? ; one bonus point Ypos set to ?
 	
-	;levels
+	; -- levels --
 	Objects_Placed db ? ; indicates if on the screen there are objects, if not randomize a new level
 	CurentLevel db ? ; will be randomized when a level has ended
 	
 	; -- drawing using matrix --
-	;each frame of cube
+	
+	; -- cube --
+	
 	;these frames will be created only after the name of the player has been inserted (only when the game really starts), up until then this data will be left empty
 	matrix_cube   db 18*18 dup (?)
 	matrix_cube5  db 20*20 dup (?)
@@ -175,10 +178,10 @@ DATASEG
 	
 	;erase cube
 	matrix_erase_cube db Cube_Max_Size dup (?) ; max sizes of main cube
-			
-	; - triangle block -
+
+	; -- triangle block --
 	;to create a triangle we have to make an invisble color - this color will be 1
-	matrix_triangle db  1,  1,   1,  1,  1,  1,  1,  1,0ffh,0ffh,1,  1,   1,  1,  1,  1,    1,1
+	matrix_triangle db  1,  1,   1,  1,  1,  1,  1,  1,0ffh,0ffh,1,  1,   1,  1,  1,  1,    1,1 ; paint bytes of triangle matrix
 					db  1,  1,   1,  1,  1,  1,  1,0ffh,0,0,0ffh,1,   1,  1,  1,  1,    1,1
 					db  1,  1,   1,  1,  1,  1,0ffh,0,  0,  0,  0,0ffh, 1,  1,  1,  1,    1,1
 					db  1,  1,   1,  1,  1,0ffh, 0,  0,  0,  0,  0,  0,0ffh,1,  1, 1,1,1
@@ -189,11 +192,11 @@ DATASEG
 					db 0ffh,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,0ffh
 	
 	;erasing the triangle
-	matrix_erase_triangle db Triangle_Size dup (?), Triangle_Size dup (?), Triangle_Size dup (?), Triangle_Size dup (?), Triangle_Size dup (?) ; five triagnles
+	matrix_erase_triangle db Triangle_Size dup (?), Triangle_Size dup (?), Triangle_Size dup (?), Triangle_Size dup (?), Triangle_Size dup (?) ; five background bytes vars to save the background of the triangles
 	
 	; -- blocks --
 	;black cube inside white cube
-	matrix_blocks  db 0ffh,0ffh,0ffh,0ffh,0ffh,0ffh,0ffh,0ffh,0ffh,0ffh,0ffh,0ffh,0ffh,0ffh,0ffh,0ffh,0ffh,0ffh
+	matrix_blocks  db 0ffh,0ffh,0ffh,0ffh,0ffh,0ffh,0ffh,0ffh,0ffh,0ffh,0ffh,0ffh,0ffh,0ffh,0ffh,0ffh,0ffh,0ffh ; paint bytes of block matrix
 					db 0ffh,  0,   0,   0,   0,   0,   0,   0,   0,   0,    0,0   ,   0,   0,   0,   0,   0,0ffh
 					db 0ffh,  0,   0,   0,   0,   0,   0,   0,   0,   0,    0,0   ,   0,   0,   0,   0,   0,0ffh
 					db 0ffh,  0,   0,   0,   0,   0,   0,   0,   0,   0,    0,0   ,   0,   0,   0,   0,   0,0ffh
@@ -213,38 +216,40 @@ DATASEG
 					db 0ffh,0ffh,0ffh,0ffh,0ffh,0ffh,0ffh,0ffh,0ffh,0ffh,0ffh,0ffh,0ffh,0ffh,0ffh,0ffh,0ffh,0ffh
 
 	;erasing block
-	matrix_erase_blocks db Block_Size dup (?), Block_Size dup (?), Block_Size dup (?), Block_Size dup (?), Block_Size dup (?) ; five blocks
+	matrix_erase_blocks db Block_Size dup (?), Block_Size dup (?), Block_Size dup (?), Block_Size dup (?), Block_Size dup (?) ; five background bytes vars to save the background of the blocks
 	
-	;bonus points
-	matrix_bonus db Bonus_Point_Size dup (0fh)
+	; -- bonus points --
+	matrix_bonus db Bonus_Point_Size dup (0fh) ; paint bytes of bonus point matrix
 	
 	;erasing point
-	matrix_erase_point db Bonus_Point_Size dup (?) ; one bonus point
+	matrix_erase_point db Bonus_Point_Size dup (?) ; one bacgkround bytes var to save the bacgkround of the bonus points
+	
+	; towers dont have matrix to paint because it uses the blocks matrix to paint itself block by block from up to down
 	
 	;erase tower
-	matrix_erase_tower db Tower_Size dup (?), Tower_Size dup (?), Tower_Size dup (?) ; three towers
+	matrix_erase_tower db Tower_Size dup (?), Tower_Size dup (?), Tower_Size dup (?) ; three bacgkround bytes var to save the bacgkround of the towers
 	
 	matrix dw ? ; holds the offset of the mtarix we want to print
 	
 	; -- FILES --
 	
-	; background bmp picture var
-    ScrLine db Max_Bmp_Width dup (?)  ; One Color line read buffer
+    ScrLine db Max_Bmp_Width dup (?)  ; Saves one line from the picture file in this var and then prints it on screen
 
 	;BMP File data
 	FileHandle dw ?
-	Header db 54 dup(?)
-	Palette db 400h dup (?)
+	Header db 54 dup(?) ; first 54 bytes of the bmp file - Header
+	Palette db 400h dup (?) ; second 1024 bytes the bmp file - 256 * 4 color (every color has four colors (RGB + null))
+	;after that the picture itself is the data after reading the Header and the Palette
 	
 	;place on screen
-	BmpLeft dw ?
-	BmpTop dw ?
-	BmpColSize dw ?
-	BmpRowSize dw ?
+	BmpLeft dw ? ; the Xpos of the bmp file picture on screen
+	BmpTop dw ? ; the Ypos of the bmp file picture on screen
+	BmpColSize dw ? ; the width of the bmp file picture on screen
+	BmpRowSize dw ? ; the height of the bmp file picture on screen
 	
 	;errors
 	ErrorFile db ?
-	BmpFileErrorMsg    	db 'Error At Opening Bmp File ', 0dh, 0ah,'$'
+	BmpFileErrorMsg db 'Error At Opening Bmp File ', 0dh, 0ah,'$' ; BMP error msg with the file name
 	
 	;screens
 	FileName_background db 'back.bmp' ,0 ; background - main screen
@@ -281,9 +286,11 @@ DATASEG
 	
 	FileName_Scores db 'scores.txt', 0 ; the name of the highest score ever
 	FileHandleScores dw ? ; the file handle
+	
 	ScoreInFile db "xxxx", '$' ; score in file in text
 	ScoreFileRealNum dw ? ; the score in file converted to number
-	ErasePrevName db 13 dup ('x') ; if a player did a new high score
+	
+	ErasePrevName db 13 dup ('x') ; if a player did a new high score (this is set to 13 because a player can't play the game without at least one char in his name)
 	FileScoreHolder db 14 dup ('$') ; the name of the best player with the highest score
 	
 ;In graphics modes, the screen contents around the current mouse cursor position are ANDed with the screen mask and then XORed with the cursor mask
@@ -458,7 +465,7 @@ proc CalcScore
 	
 	add ax, [seconds]
 
-	mov [PlayerScoreRealNum], ax
+	mov [PlayerScoreRealNum], ax ; save in var
 
 	popa
 	ret
@@ -588,7 +595,7 @@ endp SetHighScore
 ; Description -  delays the program according to the number that was pushed in stack
 ;				 this delay is not by milliseconds because the game is meant to be played in 10000 cycles
 ; INPUT: Number of delay time in stack
-; OUTPUT: real number of file in "ScoreFileRealNum" and the highest score in file
+; OUTPUT: System delayed by the requsted time
 ; Register Usage: None
 ;================================================
 proc LoopDelay
@@ -619,8 +626,8 @@ endp LoopDelay
 ;================================================
 proc CountSeconds
 	
-	inc [counterSeconds]
-	cmp [counterSeconds], 37 ; one second
+	inc [counterSeconds] ; count every frame
+	cmp [counterSeconds], 37 ; 37 frames equals to one second
 	jne @@cont
 	inc [seconds]
 	mov [counterSeconds], 0
@@ -668,7 +675,8 @@ proc ChangeCursor
 	push ds
 	pop es ; because it transfers to ES:DX
 	
-	mov ax, 9
+	mov ax, 9 ; int 33h, 9 can change the mouse cursor
+	
 	; we will put our actual cursor in the middle of the cube
     mov bx, 8 ; horizontal hot spot
     mov cx, 8 ; vertical hot spot
@@ -858,10 +866,10 @@ proc Settings_Screen
 	
 @@check_outer_color:
 	cmp cx, 45
-	jb @@check_inner_color
+	jb @@check_random_color
 	
 	cmp cx, 275
-	ja @@check_inner_color
+	ja @@check_click
 	
 	cmp dx, 60
 	jb @@check_click ; if the y is below then it cant be anything
@@ -883,6 +891,34 @@ proc Settings_Screen
 	
 	;if it got here it means one of the colors was pressed so then we will just pass it to the out color
 	mov [OutSideColor], al
+	jmp @@check_click
+	
+@@check_random_color: ; to check if the player pressed the random color settings
+	cmp cx, 18
+	jb @@check_click
+	
+	cmp cx, 35
+	ja @@check_click
+	
+	cmp dx, 65
+	jb @@check_click
+	
+	cmp dx, 75
+	ja @@check_random_inner
+	
+	call RandomColor
+	mov [OutSideColor], al
+	jmp @@check_click
+	
+@@check_random_inner:
+	cmp dx, 105
+	jb @@check_click
+	
+	cmp dx, 115
+	ja @@check_click
+	
+	call RandomColor
+	mov [InsideColor], al
 	jmp @@check_click
 	
 @@check_inner_color:
@@ -946,6 +982,24 @@ proc Settings_Screen
 	popa
 	ret
 endp Settings_Screen
+
+;================================================
+; Description -  will generate a random number between 0-256 (number of colors) and put in al this number
+; INPUT: None
+; OUTPUT: The number of the color in register AL
+; Register Usage: AL
+;================================================
+proc RandomColor
+	push bx
+	
+	mov bl, 0 ; lowest number of color
+	mov bh, 0ffh ; heighest number of color
+	
+	call RandomByCs
+	
+	pop bx
+	ret
+endp RandomColor
 
 ;================================================
 ; Description -  before starting the game, it will require to enter the name of the player, so here we check if the player pressed the name enter area
@@ -1581,7 +1635,7 @@ proc Pick_matrix_by_height
 	cmp [timeInAir], 18 ; if equal to ten mak it zero
 	jb @@end
 	
-	mov [timeInAir], 0
+	mov [timeInAir], 0 ; start the timer from start
 	
 @@end:
 	ret
@@ -1595,6 +1649,7 @@ endp Pick_matrix_by_height
 ;================================================
 proc Erase_Cube
 	pusha
+	
 	mov ax, [Ypos]
 	mov bx, 320
 	mul bx
@@ -1609,6 +1664,7 @@ proc Erase_Cube
 	mov [matrix], bx
 	
 	call putCubeInScreen
+	
 	popa
 	ret
 endp Erase_Cube
@@ -1630,6 +1686,7 @@ proc Copy_Background_Cube
 	mov [matrix], bx
 	
 	call putCubeInData
+	
 	popa
 	ret
 endp Copy_Background_Cube
@@ -1643,11 +1700,11 @@ endp Copy_Background_Cube
 proc DrawBlock
 	pusha
 	
-	xor si, si
-	xor bp, bp
-	mov cx, Max_Objects
+	xor si, si ; pointer to memory on X of the blocks
+	xor bp, bp ; pointer to memory of the background of each block
+	mov cx, Max_Objects ; max five objects
 @@drawAllBlocks:
-	push cx
+	push cx ; save cx
 	cmp [Xpos_Blocks + si], 301 ; if this is out of screen dont draw
 	ja @@end_loop
 	
@@ -1677,8 +1734,8 @@ proc DrawBlock
 	call putMatrixInScreen
 	
 @@end_loop:
-	add bp, 324 ; the other block
-	add si, 2
+	add bp, 324 ; jump to the next block
+	add si, 2 ; because we are dealing with words
 	pop cx
 	loop @@drawAllBlocks
 	
@@ -1695,9 +1752,9 @@ endp DrawBlock
 proc Erase_Block
 	pusha
 
-	xor si, si
-	mov cx, Max_Objects
-	xor bp, bp
+	xor si, si ; pointer to memory on X of the blocks
+	xor bp, bp ; pointer to memory of the background of each block
+	mov cx, Max_Objects ; max five objects
 @@drawAllBlocks:
 	push cx
 	cmp [Xpos_Blocks + si], 301 ; if this is out of screen dont draw
@@ -1722,8 +1779,8 @@ proc Erase_Block
 	call putMatrixInScreen
 	
 @@end_loop:
-	add bp, 324 ; the other block
-	add si, 2
+	add bp, 324 ; jump to the next block
+	add si, 2 ; dealing with words
 	pop cx
 	loop @@drawAllBlocks
 
@@ -1773,9 +1830,9 @@ endp DrawBlock_Stack
 proc Draw_Triangle
 	pusha
 	
-	xor si, si
-	xor bp, bp
-	mov cx, Max_Objects
+	xor si, si ; pointer to memory on X of the triangles
+	xor bp, bp ; pointer to memory of the background of each triangle
+	mov cx, Max_Objects ; max five objects
 @@drawTriangles:
 	push cx
 	cmp [Xpos_Triangle + si], 301 ; if this is out of screen dont draw
@@ -1794,7 +1851,7 @@ proc Draw_Triangle
 	mov dx, 18 ; cols
 	
 	mov bx, offset matrix_erase_triangle ; the data will be stored in this var
-	add bx, bp
+	add bx, bp ; add bp to get the right triangle background
 	mov [matrix], bx
 	
 	call putMatrixInData ; we will copy the background before drawing
@@ -1805,8 +1862,8 @@ proc Draw_Triangle
 	call putCubeInScreen
 	
 @@end_loop:
-	add bp, 162
-	add si, 2
+	add bp, 162 ; jump to the next triangles
+	add si, 2 ; dealing with words
 	pop cx
 	loop @@drawTriangles
 	
@@ -1823,9 +1880,9 @@ endp Draw_Triangle
 proc Erase_Triangle
 	pusha
 	
-	xor si, si
-	xor bp, bp
-	mov cx, Max_Objects
+	xor si, si ; pointer to memory on X of the triangles
+	xor bp, bp ; pointer to memory of the background of each triangle
+	mov cx, Max_Objects ; max five objects
 @@drawTriangles:
 	push cx
 	
@@ -1851,8 +1908,8 @@ proc Erase_Triangle
 	call putMatrixInScreen ; we will copy the background before drawing
 	
 @@end_loop:
-	add bp, 162
-	add si, 2
+	add bp, 162 ; jump to the next triangle
+	add si, 2 ; dealing with words
 	pop cx
 	loop @@drawTriangles
 
@@ -1869,11 +1926,11 @@ endp Erase_Triangle
 proc Draw_Tower
 	pusha
 	
-	xor si, si
-	xor bp, bp
-	mov cx, Max_Objects_Towers
+	xor si, si ; pointer to memory on X of the towers
+	xor bp, bp ; pointer to memory of the background of each towers
+	mov cx, Max_Objects_Towers ; max three objects
 @@drawAllTowers:
-	push cx
+	push cx ; save cx
 	cmp [Xpos_Tower + si], 301
 	ja @@end_loop
 	
@@ -1904,8 +1961,8 @@ proc Draw_Tower
 	add bx, 18 ; add to y to draw the next block
 	loop @@draw_blocks
 @@end_loop:
-	add si, 2
-	add bp, 1620 ; a whole tower
+	add si, 2 ; dealing with words
+	add bp, 1620 ; jump to the next tower
 	pop cx
 	loop @@drawAllTowers
 	
@@ -1956,11 +2013,11 @@ endp Copy_Background_Tower
 proc Erase_Tower
 	pusha
 	
-	xor si, si
-	xor bp, bp
-	mov cx, Max_Objects_Towers
+	xor si, si ; pointer to memory on X of the towers
+	xor bp, bp ; pointer to memory of the background of each towers
+	mov cx, Max_Objects_Towers ; max three objects
 @@eraseAllTowers:
-	push cx
+	push cx ; save cx
 	cmp [Xpos_Tower + si], 301
 	ja @@end_loop
 	
@@ -1986,8 +2043,8 @@ proc Erase_Tower
 	call putMatrixInScreen 
 	
 @@end_loop:
-	add si, 2
-	add bp, 1620
+	add si, 2 ; dealing with words
+	add bp, 1620 ; jump to the next tower
 	pop cx
 	loop @@eraseAllTowers
 	
@@ -2054,7 +2111,7 @@ endp Copy_Background_Points
 proc Erase_point
 	pusha
 	
-	cmp [Xpos_Points], 310
+	cmp [Xpos_Points], 310 ; if not in screen
 	ja @@end
 
 	;calculating the place
@@ -2446,7 +2503,7 @@ proc Check_Triangle
 	mov cx, Xpos_Cube
 	mov dx, [Ypos]
 	add dx, [CurrentSize]
-	add dx, 3
+	add dx, 2
 	
 	sub di, 2
 	cmp cx, ax
@@ -2470,7 +2527,6 @@ proc Check_Triangle
 	;right side
 @@check2:
 	add cx, [CurrentSize]
-	add cx, 4
 	;we need to check couple of x before the triangle and infront
 	add di, 4
 	sub ax, 3
@@ -2711,7 +2767,7 @@ proc Descending
 	jmp @@end
 
 @@end_jump:
-	mov [can_jump], 1
+	mov [can_jump], 1 ; to symble that we can jump again
 	mov [Is_Going_down], 0 ; finished going down
 	
 @@end:
@@ -2817,7 +2873,7 @@ proc Cube_Move
 endp Cube_Move
 
 ;================================================
-; Description - Generating a random random (the number of levels), then proceeds to play the level, when a level has ended it will generate again a random number
+; Description - Generating a random (the number of levels), then proceeds to play the level, when a level has ended it will generate again a random number
 ; INPUT: None
 ; OUTPUT: runs the current level
 ; Register Usage: None
@@ -2830,15 +2886,15 @@ proc PickLevel
 	je @@put_level
 	
 	mov bl, 1 ; min level
-	mov bh, 12 ; max numbers of levels
+	mov bh, 13 ; max numbers of levels
 	call RandomByCs
 	;now al has the number of the level
-	mov [CurentLevel], al
+	mov [CurentLevel], al ; save the current level
 	
 @@put_level:
-	mov al, [CurentLevel]
+	mov al, [CurentLevel] ; get the current level
 
-	cmp al, 1
+	cmp al, 1 ; check which level are we on
 	je @@level_one
 	
 	cmp al, 2
@@ -2874,7 +2930,10 @@ proc PickLevel
 	cmp al, 12
 	je @@level_twelve
 	
-@@level_one:
+	cmp al, 13
+	je @@level_thirteen
+	
+@@level_one: ; play the level that we are currently on
 	call Level_One
 	jmp @@end
 	
@@ -2922,10 +2981,37 @@ proc PickLevel
 	call Level_Twelve
 	jmp @@end
 	
+@@level_thirteen:
+	call Level_Thirteen
+	jmp @@end
+	
 @@end:
 	popa
 	ret
 endp PickLevel
+
+;================================================
+;             -- Level Structure --
+;
+; - Check if the objects have already been placed
+; *If yes jump over
+; *If not place all the objects in the right X and Y, after that draw them (in order to erase them after)
+;
+; - Erase all objects
+; - Sub from every objects on this level the MovingObjectsXSpeed from its Xpos
+; - Compare if the last object on this level has went out of the map
+; *If yes jump to end level and declare that objects are not currently on screen (its signs that we can generate another random level)
+; *If not draw all objects and continue
+;
+; Note: Some level may require more of the cpu (when using many objects) so when the level is generated we will lower the delay and when the level has ended we will return the delay
+;
+; Rare cases: When the last object is a bonus point we cant just check if the bonus point X is out of screen because when a player eats the bonus point the X of it will go out of the screen
+;             This will cause problems when the player has eaten a bonus point and there are objects on screen
+;             To solve this we will check if the bonus point and the objects that can be visible with it while the player has eaten it are out of screen (if not out of screen continue playing the level)
+;================================================
+
+
+
 ;
 ;
 ;		
@@ -3042,7 +3128,7 @@ proc Level_Three
 	
 	call Erase_All
 	
-	mov ax, MovingObjectsXSpeed
+	mov ax, 6 ; because the triangle on the block is very hard to pass we will speed this level
 	
 	sub [Xpos_Blocks], ax
 	sub [Xpos_Triangle], ax
@@ -3498,10 +3584,60 @@ proc Level_Twelve
 	ret
 endp Level_Twelve
 
+;
+;               •
+;               █
+;  █       █    
+;  ▲   █   █
+proc Level_Thirteen
+	cmp [Objects_Placed], 1
+	je @@move_objects
+	
+	mov [Objects_Placed], 1
+	mov [Xpos_Triangle], 330
+	mov [Ypos_Triangle], 152 ; first triangle on floor
+	mov [Xpos_Blocks], 330
+	mov [Ypos_Blocks], 125 ; first block floating in air above triangle
+	mov [Xpos_Blocks + 2], 420
+	mov [Ypos_Blocks + 2], 143 ; second block on ground
+	mov [Xpos_Tower], 490
+	mov [Height_Tower], 2 ; first tower height of 2 blocks
+	mov [Xpos_Blocks + 4], 590
+	mov [Ypos_Blocks + 4], 107 ; third block floating in air
+	mov [Xpos_Points], 596
+	mov [Ypos_Points], 92 ; first bonus point above block
+	
+	call Draw_All
+	
+	sub [delay], 5
+	
+@@move_objects:
+	call Erase_All
+	
+	mov ax, MovingObjectsXSpeed
+	sub [Xpos_Triangle], ax
+	sub [Xpos_Blocks], ax
+	sub [Xpos_Blocks + 2], ax
+	sub [Xpos_Tower], ax
+	sub [Xpos_Points], ax
+	sub [Xpos_Blocks + 4], ax
+	cmp [Xpos_Blocks + 4], OutOfScreenX
+	ja @@end_level
+
+@@cont:	
+	call Draw_All
+	jmp @@end
+@@end_level:
+	mov [Objects_Placed], 0
+	add [delay], 5
+@@end:
+	ret
+endp Level_Thirteen
+
 ;================================================
 ; Description - draw all the objects that are currently on screen
 ; INPUT: None
-; OUTPUT: objects on screen
+; OUTPUT: objects drawn on screen
 ; Register Usage: None
 ;================================================
 proc Draw_All
@@ -3534,11 +3670,11 @@ endp Erase_All
 ;================================================
 proc Transfer_bmp_matrix
 	;90 degrees
-	mov [CurrentSize], 18
-	mov bx, offset matrix_cube
-	mov [matrix], bx
-	mov dx, offset FileName_cube
-	call CopyBmp
+	mov [CurrentSize], 18 ; size of frame
+	mov bx, offset matrix_cube ; the offset of the matrix we need the frame to be in
+	mov [matrix], bx ; put it in matrix var in DS
+	mov dx, offset FileName_cube ; the name offset of the file name
+	call CopyBmp ; copy to DS
 	
 	;5 degrees
 	mov [CurrentSize], 20
@@ -3698,7 +3834,7 @@ endp OpenShowBmp
 ; Register Usage: None
 ;================================================
 proc CopyBmp near
-		 
+
 	call OpenBmpFile
 	cmp [ErrorFile],1
 	je @@ExitProc
@@ -4216,10 +4352,10 @@ RandLoop: ;  generate random number
 	xor al, ah ; xor memory and counter
 	
 	; Now inc di in order to get a different number next time
-	inc di
-	cmp di,(EndOfCsLbl - start - 1)
-	jb @@Continue
-	mov di, offset start
+	inc di ; change the place of rnd label
+	cmp di,(EndOfCsLbl - start - 1) ; see if it reached the end
+	jb @@Continue ; if not continue
+	mov di, offset start ; if yes move the rnd label to the start
 @@Continue:
 	mov [word RndCurrentPos], di
 	
@@ -4244,14 +4380,15 @@ Proc MakeMask
 	mov si,1
     
 @@again:
-	shr bh,1
-	cmp bh,0
-	jz @@EndProc
+	shr bh,1 ; divide by two
+	cmp bh,0 ; see if zero
+	jz @@EndProc ; if yes go to end
 	
-	shl si,1 ; add 1 to si at right
-	inc si
+	shl si,1 ; multiple si by two
+	inc si ; add si one
+	; in binary this will just move all the bits to the left and make the first zero to one
 	
-	jmp @@again
+	jmp @@again ; repeat
 	
 @@EndProc:
     pop bx
