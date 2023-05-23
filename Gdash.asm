@@ -3026,7 +3026,26 @@ endp PickLevel
 ;             To solve this we will check if the bonus point and the objects that can be visible with it while the player has eaten it are out of screen (if not out of screen continue playing the level)
 ;=========================================================================================================================================================================================================
 
+;We will declare the height of objects for the levels
+;We will set consts to the ypos of every object
+;The only thing thats gonna be manualy controlled is the xpos
 
+;Blocks - block size is 18 * 18 so we will take the height and sub 18 to make it seem like it is on the floor
+BlocksFloorHeight = 161 - 18
+BlocksOneAboveGroundHeight = (161 - 18) - 18
+BlocksTwoAboveGroundHeight = (161 - 18) - 18 * 2
+BlocksThreeAboveGroundHeight = (161 - 18) - 18 * 3
+BlocksFourAboveGroundHeight = (161 - 18) - 18 * 4
+
+;Triangles - triangle size is 9 * 18 so we will take the height and sub 9 to make it seem like it is on the floor
+TrianglesFloorHeight = BlocksFloorHeight + 9
+TrianglesOneAboveGroundHeight = BlocksOneAboveGroundHeight + 9
+TrianglesTwoAboveGroundHeight = BlocksTwoAboveGroundHeight + 9
+TrianglesThreeAboveGroundHeight = BlocksThreeAboveGroundHeight + 9
+TrianglesFourAboveGroundHeight = BlocksFourAboveGroundHeight + 9
+
+;Towers dont have height so we don't need to make consts for them
+;Points also don't need because it is one objects and can be in many places
 
 ;
 ;
@@ -3040,10 +3059,10 @@ proc Level_One
 	mov [Objects_Placed], 1 ; declare that we are putting the objects in place
 	mov [Height_Tower], 2 ; height of three blocks of tower
 	mov [Xpos_Blocks], 400 ; first block
-	mov [Ypos_Blocks], 143
+	mov [Ypos_Blocks], BlocksFloorHeight
 	
 	mov [Xpos_Triangle], 660 ; last triangle
-	mov [Ypos_Triangle], 152
+	mov [Ypos_Triangle], TrianglesFloorHeight
 	
 	mov [Xpos_Tower], 520 ; the tower
 	
@@ -3079,15 +3098,15 @@ proc Level_Two
 	
 	mov [Objects_Placed], 1 ; signs that we are putting the objects in place
 	mov [Xpos_Triangle], 360 ; first triangle
-	mov [Ypos_Triangle], 152
+	mov [Ypos_Triangle], TrianglesFloorHeight
 	mov [Xpos_Tower], 490 ; the tower
 	mov [Height_Tower], 2 ; height of 3 blocks
 	mov [Xpos_Blocks], 580 ; floating block
-	mov [Ypos_Blocks], 125
+	mov [Ypos_Blocks], BlocksOneAboveGroundHeight
 	mov [Xpos_Points], 586 ; bonus point above block
 	mov [Ypos_Points], 110
 	mov [Xpos_Triangle + 2], 710 ; last triangle
-	mov [Ypos_Triangle + 2], 152
+	mov [Ypos_Triangle + 2], TrianglesFloorHeight
 	
 	call Draw_All
 	
@@ -3123,13 +3142,13 @@ proc Level_Three
 	
 	mov [Objects_Placed], 1
 	mov [Xpos_Blocks], 320 ; first block
-	mov [Ypos_Blocks], 143
+	mov [Ypos_Blocks], BlocksFloorHeight
 	mov [Xpos_Triangle], 320 ; first triangle above block
-	mov [Ypos_Triangle], 134
+	mov [Ypos_Triangle], TrianglesOneAboveGroundHeight
 	mov [Xpos_Triangle + 2], 440 ; second triangle before third triangle
-	mov [Ypos_Triangle + 2], 152
+	mov [Ypos_Triangle + 2], TrianglesFloorHeight
 	mov [Xpos_Triangle + 4], 460 ; third triangle
-	mov [Ypos_Triangle + 4], 152
+	mov [Ypos_Triangle + 4], TrianglesFloorHeight
 	mov [Xpos_Tower], 590
 	mov [Height_Tower], 2 ; tower of 2 blocks
 	mov [Xpos_Points], 656 ; bonus point
@@ -3171,17 +3190,17 @@ proc Level_Four
 	
 	mov [Objects_Placed], 1
 	mov [Xpos_Blocks], 330 ; first block
-	mov [Ypos_Blocks], 143
+	mov [Ypos_Blocks], BlocksFloorHeight
 	mov [Xpos_Tower], 395 ; first tower
 	mov [Height_Tower], 3
 	mov [Xpos_Blocks + 2], 455 ; second floating block
-	mov [Ypos_Blocks + 2], 125
+	mov [Ypos_Blocks + 2], BlocksOneAboveGroundHeight
 	mov [Xpos_Triangle], 455 ; floating triangle
-	mov [Ypos_Triangle], 116
+	mov [Ypos_Triangle], TrianglesTwoAboveGroundHeight
 	mov [Xpos_Tower + 2], 505 ; second tower
 	mov [Height_Tower + 2], 2 ; height of two blocks
 	mov [Xpos_Triangle + 2], 545 ; second triangle
-	mov [Ypos_Triangle + 2], 152
+	mov [Ypos_Triangle + 2], TrianglesFloorHeight
 	
 	sub [delay], 7 ; this level has lots of objects, so we have to lower the delay for it to be at the normal speed
 	
@@ -3217,17 +3236,17 @@ proc Level_Five
 	
 	mov [Objects_Placed], 1
 	mov [Xpos_Triangle], 330 ; first triangle
-	mov [Ypos_Triangle], 152
+	mov [Ypos_Triangle], TrianglesFloorHeight
 	mov [Xpos_Blocks], 350 ; first block
-	mov [Ypos_Blocks], 143
+	mov [Ypos_Blocks], BlocksFloorHeight
 	mov [Xpos_Blocks + 2], 420 ; second floating block
-	mov [Ypos_Blocks + 2], 125
+	mov [Ypos_Blocks + 2], BlocksOneAboveGroundHeight
 	mov [Xpos_Triangle + 2], 420;second floating triangle
-	mov [Ypos_Triangle + 2], 116
+	mov [Ypos_Triangle + 2], TrianglesTwoAboveGroundHeight
 	mov [Xpos_Tower], 515 ; tower
 	mov [Height_Tower], 2
 	mov [Xpos_Triangle + 4], 590
-	mov [Ypos_Triangle + 4], 152
+	mov [Ypos_Triangle + 4], TrianglesFloorHeight
 	
 	call Draw_All
 	
@@ -3263,11 +3282,11 @@ proc Level_Six
 	mov [Xpos_Points], 405 ; bonus point
 	mov [Ypos_Points], 85
 	mov [Xpos_Blocks], 455 ; first block
-	mov [Ypos_Blocks], 143
+	mov [Ypos_Blocks], BlocksFloorHeight
 	mov [Xpos_Blocks + 2], 474 ; second block
-	mov [Ypos_Blocks + 2], 143
+	mov [Ypos_Blocks + 2], BlocksFloorHeight
 	mov [Xpos_Triangle], 435 ; first triangle
-	mov [Ypos_Triangle], 152
+	mov [Ypos_Triangle], TrianglesFloorHeight
 	mov [Xpos_Tower + 2], 580 ; second tower
 	mov [Height_Tower + 2], 2
 	
@@ -3307,11 +3326,11 @@ proc Level_Seven
 	mov [Xpos_Tower], 330 ; first tower
 	mov [Height_Tower], 2
 	mov [Xpos_Triangle], 380 ; first triangle
-	mov [Ypos_Triangle], 152
+	mov [Ypos_Triangle], TrianglesFloorHeight
 	mov [Xpos_Triangle + 2], 400 ; second triangle
-	mov [Ypos_Triangle + 2], 152
+	mov [Ypos_Triangle + 2], TrianglesFloorHeight
 	mov [Xpos_Blocks], 455 ; first block
-	mov [Ypos_Blocks], 143
+	mov [Ypos_Blocks], BlocksFloorHeight
 	mov [Xpos_Tower + 2], 560
 	mov [Height_Tower + 2], 3
 	
@@ -3389,13 +3408,13 @@ proc Level_Nine
 	mov [Objects_Placed], 1
 	
 	mov [Xpos_Blocks], 330 ; first block
-	mov [Ypos_Blocks], 125
+	mov [Ypos_Blocks], BlocksOneAboveGroundHeight
 	mov [Xpos_Blocks + 2], 420 ; second block
-	mov [Ypos_Blocks + 2], 107
+	mov [Ypos_Blocks + 2], BlocksTwoAboveGroundHeight
 	mov [Xpos_Tower], 500 ; first tower
 	mov [Height_Tower], 2
 	mov [Xpos_Triangle], 500 ; first triangle on block
-	mov [Ypos_Triangle], 116
+	mov [Ypos_Triangle], TrianglesTwoAboveGroundHeight
 	
 	call Draw_All
 	
@@ -3433,13 +3452,13 @@ proc Level_Ten
 	mov [Xpos_Tower], 330 ; first tower
 	mov [Height_Tower], 2
 	mov [Xpos_Blocks], 410 ; first block
-	mov [Ypos_Blocks], 107
+	mov [Ypos_Blocks], BlocksTwoAboveGroundHeight
 	mov [Xpos_Blocks + 2], 495 ; second block
-	mov [Ypos_Blocks + 2], 89
+	mov [Ypos_Blocks + 2], BlocksThreeAboveGroundHeight
 	mov [Xpos_Points], 501 ; bonus point
 	mov [Ypos_Points], 74
 	mov [Xpos_Triangle], 580 ; first triangle
-	mov [Ypos_Triangle], 152
+	mov [Ypos_Triangle], TrianglesFloorHeight
 	
 	call Draw_All
 	
@@ -3464,8 +3483,8 @@ proc Level_Ten
 endp Level_Ten
 
 ; Notice that in this level it is impossible to take the bonus point, if you take it you will die
-;
-;        █   •  █
+;               █
+;        █   •  
 ;        █
 ;    █   █
 ;        █      ▲
@@ -3476,15 +3495,15 @@ proc Level_Eleven
 	mov [Objects_Placed], 1
 	
 	mov [Xpos_Blocks], 330 ; first block
-	mov [Ypos_Blocks], 125
+	mov [Ypos_Blocks], BlocksOneAboveGroundHeight
 	mov [Xpos_Tower], 400 ; first tower
 	mov [Height_Tower], 4
 	mov [Xpos_Points], 450 ; first bonus point
 	mov [Ypos_Points], 100
 	mov [Xpos_Blocks + 2], 495 ; second block
-	mov [Ypos_Blocks + 2], 89
+	mov [Ypos_Blocks + 2], BlocksFourAboveGroundHeight
 	mov [Xpos_Triangle], 495 ; first triangle
-	mov [Ypos_Triangle], 152
+	mov [Ypos_Triangle], TrianglesFloorHeight
 	
 	call Draw_All
 	
@@ -3521,13 +3540,13 @@ proc Level_Twelve
 	mov [Objects_Placed], 1
 	
 	mov [Xpos_Triangle], 330 ; first triagnle
-	mov [Ypos_Triangle], 152
+	mov [Ypos_Triangle], TrianglesFloorHeight
 	mov [Xpos_Tower], 420 ; first tower
 	mov [Height_Tower], 2
 	mov [Xpos_Blocks], 470 ; first block
-	mov [Ypos_Blocks], 143
+	mov [Ypos_Blocks], BlocksFloorHeight
 	mov [Xpos_Blocks + 2], 535 ; first block
-	mov [Ypos_Blocks + 2], 107
+	mov [Ypos_Blocks + 2], BlocksTwoAboveGroundHeight
 	mov [Xpos_Points], 541 ; first bonus point
 	mov [Ypos_Points], 92
 	
@@ -3567,15 +3586,15 @@ proc Level_Thirteen
 	
 	mov [Objects_Placed], 1
 	mov [Xpos_Triangle], 330
-	mov [Ypos_Triangle], 152 ; first triangle on floor
+	mov [Ypos_Triangle], TrianglesFloorHeight ; first triangle on floor
 	mov [Xpos_Blocks], 330
-	mov [Ypos_Blocks], 125 ; first block floating in air above triangle
+	mov [Ypos_Blocks], BlocksOneAboveGroundHeight ; first block floating in air above triangle
 	mov [Xpos_Blocks + 2], 420
-	mov [Ypos_Blocks + 2], 143 ; second block on ground
+	mov [Ypos_Blocks + 2], BlocksFloorHeight ; second block on ground
 	mov [Xpos_Tower], 490
 	mov [Height_Tower], 2 ; first tower height of 2 blocks
 	mov [Xpos_Blocks + 4], 590
-	mov [Ypos_Blocks + 4], 107 ; third block floating in air
+	mov [Ypos_Blocks + 4], BlocksTwoAboveGroundHeight ; third block floating in air
 	mov [Xpos_Points], 596
 	mov [Ypos_Points], 92 ; first bonus point above block
 	
@@ -3614,15 +3633,15 @@ proc Level_Fourteen
 	mov [Xpos_Tower], 330  ; first tower of two blocks
 	mov [Height_Tower], 2
 	mov [Xpos_Blocks], 410 ; first floating block
-	mov [Ypos_Blocks], 143 - 18
+	mov [Ypos_Blocks], BlocksOneAboveGroundHeight
 	mov [Xpos_Blocks + 2], 410 + 40 ; second floating block
-	mov [Ypos_Blocks + 2], 143 - 18
+	mov [Ypos_Blocks + 2], BlocksOneAboveGroundHeight
 	mov [Xpos_Triangle], 410 + 40 ; first triangle above block
-	mov [Ypos_Triangle], 143 - 18 - 9
+	mov [Ypos_Triangle], TrianglesTwoAboveGroundHeight
 	mov [Xpos_Blocks + 4], 410 + 40 + 40 ; third floating block
-	mov [Ypos_Blocks + 4], 143 - 18
+	mov [Ypos_Blocks + 4], BlocksOneAboveGroundHeight
 	mov [Xpos_Triangle + 2], 560 ; second triangle on ground
-	mov [Ypos_Triangle + 2], 161 - 9
+	mov [Ypos_Triangle + 2], TrianglesFloorHeight
 	mov [Xpos_Points], 580 ; bonus point in air
 	mov [Ypos_Points], 143 - 18 - 50
 	
@@ -3657,35 +3676,34 @@ endp Level_Fourteen
 ; Register Usage: None
 ;================================================
 proc MoveObjects
-	push si
-	push cx
+	push si cx
 	
 	xor si, si
-	mov cx, 5
+	mov cx, 5 ; five blocks and triangles
 @@move_blocks_triangles:
-	cmp [Xpos_Blocks + si], OutOfScreenX ; blocks
+	cmp [Xpos_Blocks + si], OutOfScreenX ; check if block is alive
 	ja @@cont
 	
 	sub [Xpos_Blocks + si], ax
 @@cont:
-	cmp [Xpos_Triangle + si], OutOfScreenX ; triangles
+	cmp [Xpos_Triangle + si], OutOfScreenX ; check if triangle is alive
 	ja @@rep
 	
 	sub [Xpos_Triangle + si], ax
 @@rep:
-	add si, 2
+	add si, 2 ; dealing with words
 	loop @@move_blocks_triangles
 	
 	
 	xor si, si
-	mov cx, 3
+	mov cx, 3 ; three towers
 @@move_towers:
-	cmp [Xpos_Tower + si], OutOfScreenX ; towers
+	cmp [Xpos_Tower + si], OutOfScreenX ; check if tower is alive
 	ja @@rep1
 	
 	sub [Xpos_Tower + si], ax
 @@rep1:
-	add si, 2
+	add si, 2 ; dealing with words
 	loop @@move_towers
 	
 	cmp [Xpos_Points], OutOfScreenX
@@ -3694,8 +3712,8 @@ proc MoveObjects
 	sub [Xpos_Points], ax
 	
 @@end:
-	pop cx
-	pop si
+
+	pop cx si
 	ret
 endp MoveObjects
 
