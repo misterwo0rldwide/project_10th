@@ -97,6 +97,7 @@ PlayerScoreTXT db "xxxx", '$' ; the number above but in text to print in end scr
 
 ; -- Cube variables --
 CurrentSize dw 18 ; size of the cube according to each frame - while rotation
+;The size of the cube changes throughout the jump, so we need a variable that will indicate the size of the cube for checking the walls of the cube (in "Check_Blocks" for example)
 
 ; -- loop var --
 IsExit db ? ; to know if the game has ende
@@ -183,15 +184,15 @@ matrix_erase_cube db Cube_Max_Size dup (?) ; max sizes of main cube
 
 ; -- triangle block --
 ;to create a triangle we have to make an invisble color - this color will be 1
-matrix_triangle db  1,  1,   1,  1,  1,  1,  1,  1,0ffh,0ffh,1,  1,   1,  1,  1,  1,    1,1 ; paint bytes of triangle matrix
-				db  1,  1,   1,  1,  1,  1,  1,0ffh,0,0,0ffh,1,   1,  1,  1,  1,    1,1
-				db  1,  1,   1,  1,  1,  1,0ffh,0,  0,  0,  0,0ffh, 1,  1,  1,  1,    1,1
-				db  1,  1,   1,  1,  1,0ffh, 0,  0,  0,  0,  0,  0,0ffh,1,  1, 1,1,1
-				db  1,  1,   1,  1,0ffh,  0,  0,  0,  0,  0,  0,  0, 0,0ffh,1,  1, 1,1
-				db   1,  1,  1,0ffh,0, 0,  0,  0,  0,  0,  0,  0,  0,  0,0ffh,1,  1, 1
-				db   1,  1,0ffh,0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,0ffh, 1, 1
-				db   1,0ffh, 0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,0ffh, 1
-				db 0ffh,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,0ffh
+matrix_triangle db    1,   1,   1,  1,  1,  1,  1,1,0ffh,0ffh,1,1    ,1  ,1 ,1   ,1  ,1  ,1 ; paint bytes of triangle matrix
+				db    1,   1,   1,  1,  1,  1,  1,0ffh,0,0,0ffh,1    ,1  ,1 ,1   ,1  ,1  ,1
+				db    1,   1,   1,  1,  1,  1,0ffh,0,  0,  0,  0,0ffh,1  ,1 ,1   ,1  ,1  ,1
+				db    1,   1,   1,  1,  1,0ffh,0,  0,  0,  0,  0,  0,0ffh,1 ,1   ,1  ,1  ,1
+				db    1,   1,   1,  1,0ffh,0,  0,  0,  0,  0,  0,  0, 0,0ffh,1   ,1  ,1  ,1
+				db    1,   1,   1,0ffh,0,  0,  0,  0,  0,  0,  0,  0,  0,  0,0ffh,1  ,1  ,1
+				db    1,   1,0ffh, 0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,0ffh,1  ,1
+				db    1,0ffh,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,0ffh,1
+				db 0ffh,   0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,   0,0ffh
 
 ;erasing the triangle
 matrix_erase_triangle db Triangle_Size dup (?), Triangle_Size dup (?), Triangle_Size dup (?), Triangle_Size dup (?), Triangle_Size dup (?) ; five background bytes vars to save the background of the triangles
@@ -257,7 +258,7 @@ BmpFileErrorMsg db 'Error At Opening Bmp File ', 0dh, 0ah,'$' ; BMP error msg wi
 FileName_background db 'back.bmp' ,0 ; background - main screen
 FileName_start db 'start.bmp', 0 ; start screen (before start of game)
 FileName_EnterName db 'name.bmp', 0 ; middle button start screen -  enter your name
-FileName_Settings db 'settings.bmp', 0 ; right button in start screen
+FileName_Settings db 'settings.bmp', 0 ; right button in start screen - settings screen
 FileName_Guide db 'guide.bmp', 0 ; left button in start screen - how to play
 FileName_NameError db 'nameEr.bmp', 0 ; in case no chars have been entered in the name enter we print an error
 FileName_End db 'end.bmp', 0 ; end screen after died or after pressed ESC
@@ -961,8 +962,8 @@ proc Settings_Screen
 	
 	; if it got here we pressed on the slow button
 	
-	mov [delay], 85 ; slow speed
-	mov [SaveDelay], 85 ; save it
+	mov [delay], 90 ; slow speed
+	mov [SaveDelay], 90 ; save it
 	jmp @@check_click
 	
 @@normal:
@@ -972,16 +973,16 @@ proc Settings_Screen
 	cmp cx, 205
 	ja @@fast
 	
-	mov [delay], 80
-	mov [SaveDelay], 80 ; save it
+	mov [delay], 85
+	mov [SaveDelay], 85 ; save it
 	jmp @@check_click
 	
 @@fast:
 	cmp cx, 288
 	ja @@check_click
 	
-	mov [delay], 75
-	mov [SaveDelay], 75 ; save it
+	mov [delay], 80
+	mov [SaveDelay], 80 ; save it
 	jmp @@check_click
 @@end:
 	popa
@@ -2438,7 +2439,6 @@ endp CheckIsInPoint
 ; Register Usage: None
 ;================================================
 proc Check_Blocks
-	;we will use the 25 numbers because the maximun size of the cube is 25*25 while rotation
 	;we will check three pixels to the right up and down
 	push 0a000h
 	pop es
@@ -2446,7 +2446,7 @@ proc Check_Blocks
 	mov cx, Xpos_Cube
 	mov dx, [Ypos]
 	add cx, [CurrentSize]
-	add cx, 3
+	add cx, 4
 	
 	mov ax, dx
 	mov bx, 320
@@ -2628,6 +2628,8 @@ proc Check_Fall
 	
 	cmp dx, 82
 	ja @@three_blocks
+	
+	jmp @@four_blocks
 
 @@ground:
 	mov [Ypos], 143
@@ -2640,6 +2642,9 @@ proc Check_Fall
 	jmp @@cont
 @@three_blocks:
 	mov [Ypos], 89
+	jmp @@cont
+@@four_blocks:
+	mov [Ypos], 71
 @@cont:
 	mov [can_jump], 1 ; we can jump again - in case we are falling we will cancel the jump movement so when when stop falling we cant jump
 	mov [Is_Falling], 0
@@ -2708,11 +2713,12 @@ endp Check_Above
 proc Cube_Ascend
 	pusha
 	
+	cmp [bool_calc_max_height], 1; if already we calculated the max height
+	je @@go_up
+	
 	mov [Is_Falling], 0
 	mov [can_jump], 0
 	
-	cmp [bool_calc_max_height], 1; if already we calculated the max height
-	je @@go_up
 	;calculating max height - ypos - 54
 	mov ax, [Ypos]
 	sub ax, 48 ; middle height
@@ -2895,7 +2901,7 @@ proc PickLevel
 	je @@put_level
 	
 	mov bl, 1 ; min level
-	mov bh, 14 ; max numbers of levels
+	mov bh, 16 ; max numbers of levels
 	call RandomByCs
 	;now al has the number of the level
 	mov [CurentLevel], al ; save the current level
@@ -2944,6 +2950,11 @@ proc PickLevel
 	
 	cmp al, 14
 	je @@level_fourteen
+	
+	cmp al, 15
+	je @@level_fifteen
+	
+	jmp @@level_sixteen ; if it got here it means al is sixteen
 	
 @@level_one: ; play the level that we are currently on
 	call Level_One
@@ -3001,6 +3012,13 @@ proc PickLevel
 	call Level_Fourteen
 	jmp @@end
 	
+@@level_fifteen:
+	call Level_Fifteen
+	jmp @@end
+	
+@@level_sixteen:
+	call Level_Sixteen
+	
 @@end:
 	popa
 	ret
@@ -3042,7 +3060,6 @@ TrianglesFloorHeight = BlocksFloorHeight + 9
 TrianglesOneAboveGroundHeight = BlocksOneAboveGroundHeight + 9
 TrianglesTwoAboveGroundHeight = BlocksTwoAboveGroundHeight + 9
 TrianglesThreeAboveGroundHeight = BlocksThreeAboveGroundHeight + 9
-TrianglesFourAboveGroundHeight = BlocksFourAboveGroundHeight + 9
 
 ;Towers dont have height so we don't need to make consts for them
 ;Points also don't need because it is one objects and can be in many places
@@ -3483,8 +3500,8 @@ proc Level_Ten
 endp Level_Ten
 
 ; Notice that in this level it is impossible to take the bonus point, if you take it you will die
-;               █
-;        █   •  
+;              
+;        █   •  █ 
 ;        █
 ;    █   █
 ;        █      ▲
@@ -3501,7 +3518,7 @@ proc Level_Eleven
 	mov [Xpos_Points], 450 ; first bonus point
 	mov [Ypos_Points], 100
 	mov [Xpos_Blocks + 2], 495 ; second block
-	mov [Ypos_Blocks + 2], BlocksFourAboveGroundHeight
+	mov [Ypos_Blocks + 2], BlocksThreeAboveGroundHeight
 	mov [Xpos_Triangle], 495 ; first triangle
 	mov [Ypos_Triangle], TrianglesFloorHeight
 	
@@ -3668,6 +3685,168 @@ proc Level_Fourteen
 @@end:
 	ret
 endp Level_Fourteen
+
+;                █
+;                ▼    •
+;       █             
+;   █   █     █
+;       █   ▲    █
+proc Level_Fifteen
+	cmp [Objects_Placed], 1
+	je @@move_objects
+	
+	mov [Objects_Placed], 1
+	mov [Xpos_Blocks], 330 ; first block
+	mov [Ypos_Blocks], BlocksOneAboveGroundHeight
+	mov [Xpos_Tower], 400
+	mov [Height_Tower], 3 ; first tower height of three blocks
+	mov [Xpos_Triangle], 450
+	mov [Ypos_Triangle], TrianglesFloorHeight ; first triangle on floor
+	mov [Xpos_Blocks + 2], 480
+	mov [Ypos_Blocks + 2], BlocksOneAboveGroundHeight ; second block above ground
+	mov [Xpos_Blocks + 4], 520
+	mov [Ypos_Blocks + 4], BlocksFourAboveGroundHeight ; third block above ground
+	mov [Xpos_Triangle + 2], 520
+	mov [Ypos_Triangle + 2], BlocksThreeAboveGroundHeight ; second upside down triangle - we put the blocks third height so it will be close to the block above it
+	mov [Xpos_Blocks + 6], 520
+	mov [Ypos_Blocks + 6], BlocksFloorHeight ; fourth block on ground
+	mov [Xpos_Points], 600
+	mov [Ypos_Points], 70 ; floating bonus point
+	
+	call Draw_All
+	
+	sub [delay], 8
+	
+@@move_objects:
+	call Erase_All
+	
+	mov ax, MovingObjectsXSpeed
+	call MoveObjects
+	cmp [Xpos_Points], OutOfScreenX
+	ja @@end_level
+
+@@cont:	
+	;because we want to print the triangle upside down we won't use the regular Draw_All function, we will use each function seperetly
+	call Draw_Tower
+	call DrawBlock
+	call DrawPoint
+	
+	;now we will print the two triangles
+	;firstly we will check if on screen
+	;the regular triangle
+	
+	cmp [Xpos_Triangle], 301
+	ja @@second_triangle
+	
+	;calc di - place on screen
+	mov ax, [Ypos_Triangle]
+	mov bx, 320
+	mul bx
+	
+	mov di, ax
+	add di, [Xpos_Triangle]
+	
+	mov cx, 9
+	mov dx, 18
+	
+	mov bx, offset matrix_erase_triangle ; save background
+	mov [matrix], bx
+	
+	call putCubeInData
+	
+	mov bx, offset matrix_triangle
+	mov [matrix], bx
+	
+	call putCubeInScreen
+
+@@second_triangle:
+	;upside down triangle
+	
+	cmp [Xpos_Triangle + 2], 301
+	ja @@end
+
+	mov bx, offset matrix_triangle
+	mov [matrix], bx
+	
+	;calc di - place on screen
+	mov ax, [Ypos_Triangle + 2]
+	mov bx, 320
+	mul bx
+	
+	mov di, ax
+	add di, [Xpos_Triangle + 2]
+	
+	mov cx, 9
+	mov dx, 18
+	
+	mov bx, offset matrix_erase_triangle ; save background
+	add bx, 9*18 ; second triangle
+	mov [matrix], bx
+	
+	call putCubeInData
+	
+	mov bx, offset matrix_triangle
+	mov [matrix], bx
+	
+	call putMatrixInScreenUpsideDown
+	
+	jmp @@end
+@@end_level:
+	cmp [Xpos_Blocks + 6], OutOfScreenX ; in case we ate the bonus point but the block still shows on screen
+	jb @@cont
+	mov [Objects_Placed], 0
+	add [delay], 8
+@@end:
+	ret
+endp Level_Fifteen
+
+;             
+;       █        █
+;                        █
+;  █          •      █   █
+;  █         ▲▲          █
+proc Level_Sixteen
+	cmp [Objects_Placed], 1
+	je @@move_objects
+	
+	mov [Objects_Placed], 1
+	mov [Xpos_Tower], 330  ; first tower of two blocks
+	mov [Height_Tower], 2
+	mov [Xpos_Blocks], 420 ; first floating block
+	mov [Ypos_Blocks], BlocksThreeAboveGroundHeight
+	mov [Xpos_Triangle], 490
+	mov [Ypos_Triangle], TrianglesFloorHeight ; first triangle on floor
+	mov [Xpos_Triangle + 2], 490 + 18
+	mov [Ypos_Triangle + 2], TrianglesFloorHeight ; second triangle on floor
+	mov [Xpos_Blocks + 2], 540
+	mov [Ypos_Blocks + 2], BlocksThreeAboveGroundHeight ; second floating block
+	mov [Xpos_Points], 490 + 15
+	mov [Ypos_Points], BlocksFloorHeight - 15 ; bonus point
+	mov [Xpos_Blocks + 4], 630
+	mov [Ypos_Blocks + 4], BlocksOneAboveGroundHeight ; third floating block
+	mov [Xpos_Tower + 2], 720
+	mov [Height_Tower + 2], 3 ; second tower of three blocks
+	call Draw_All
+	
+	sub [delay], 8
+	
+@@move_objects:
+	call Erase_All
+	
+	mov ax, MovingObjectsXSpeed
+	call MoveObjects
+	cmp [Xpos_Tower + 2], OutOfScreenX
+	ja @@end_level
+
+@@cont:	
+	call Draw_All
+	jmp @@end
+@@end_level:
+	mov [Objects_Placed], 0
+	add [delay], 8
+@@end:
+	ret
+endp Level_Sixteen
 
 ;================================================
 ; Description - move all objects on screen to the left
@@ -4261,7 +4440,7 @@ proc putMatrixInScreen
 	sub cx, 2 ; because of the width of the objects in this game (18), when using movsd (doubleword) we need the width to be divided by four
 			  ; so we will sub cx 2 and divide it by four so it will do movsd only four times
 	shr cx, 2
-	rep movsd
+	rep movsd ; double word - four bytes
 	movsw ; this will be the remaining 2 bytes because we took 2 bytes to use movsd
 	
 	sub di,dx ; go down a line
@@ -4276,6 +4455,57 @@ proc putMatrixInScreen
 endp putMatrixInScreen
 
 ;================================================
+; Description - prints matrix upside down, used for printing triangles upside down
+; INPUT: "matrix" - offset of matrix, CX col size, DX row size and DI place on screen
+; OUTPUT: puts the matrix bytes on screen upside down
+; Register Usage: None
+;================================================
+proc putMatrixInScreenUpsideDown
+	pusha
+	
+	mov ax, 0A000h
+	mov es, ax
+	cld
+	
+	mov si,[matrix]
+	
+	push dx ; put di last line in screen
+	
+	mov ax, 320
+	mul cx
+	add di, ax
+	
+	pop dx
+	
+	sub di, 320 ; go up a line
+	
+@@NextRow:
+	push cx
+	
+	mov cx, dx
+	
+@@draw_line:	; Copy line to the screen
+	lodsb
+	cmp al, 1
+	je @@end ; if it is equal to one we need to skip it
+	stosb
+	dec di
+@@end:
+	inc di
+	loop @@draw_line
+	
+	sub di,dx
+	sub di, 320 ; go up a line
+	
+	
+	pop cx
+	loop @@NextRow
+	
+	popa
+    ret
+endp putMatrixInScreenUpsideDown
+
+;================================================
 ; Description - for using an objects that has even number of width (bacuse we can use rep movsw), it will put the given matrix in data
 ; INPUT: "matrix" - offset of matrix, CX col size, DX row size and DI place on screen
 ; OUTPUT: puts the matrix bytes in data
@@ -4283,8 +4513,7 @@ endp putMatrixInScreen
 ;================================================
 proc putMatrixInData
 	pusha
-	push ds ; save the used registers
-	push es
+	push ds es ; save the used registers
 	
 	mov ax, 0A000h
 	mov es, ax ; point to graphics memory
@@ -4295,11 +4524,9 @@ proc putMatrixInData
 	;for saving the background faster we will switch the registers for enabling rep movsw and rep movsd
 	;normal movsb/movsw/movsd will work by doing [es:di] = [ds:si]
 	;in asm 8086 there is not any op for this function so we will just switch the registers to be able to transfer data fast
-	push es
-	push ds
+	push es ds
 	
-	pop es
-	pop ds
+	pop es ds
 	
 	xchg si, di ; switch si and di
 @@NextRow:	
@@ -4309,7 +4536,7 @@ proc putMatrixInData
 	sub cx, 2 ; because of the width of the objects in this game (18), when using movsd (doubleword) we need the width to be divided by four
 			  ; so we will sub cx 2 and divide it by four so it will do movsd only four times
 	shr cx, 2
-	rep movsd
+	rep movsd ; double words - four bytes
 	movsw ; this will be the remaining 2 bytes because we took 2 bytes to use movsd
 	
 	sub si,dx ; going down a line
@@ -4319,8 +4546,7 @@ proc putMatrixInData
 	pop cx
 	loop @@NextRow
 	
-	pop es
-	pop ds
+	pop es ds
 	popa
     ret
 endp putMatrixInData
@@ -4374,6 +4600,7 @@ endp putCubeInScreen
 ;================================================
 proc putCubeInData
 	pusha
+	push es ds ; because we switch between them we need to restore them afterwards, if we don't restore them, all of our vars will be lost
 	
 	mov ax, 0A000h
 	mov es, ax
@@ -4381,23 +4608,28 @@ proc putCubeInData
 	
 	mov si,[matrix]
 	
+	;for saving the background faster we will switch the registers for enabling rep movsb
+	push es
+	push ds
+	
+	pop es
+	pop ds
+	
+	xchg si, di ; switch si and di
+	
 @@NextRow:	
 	push cx
 	
 	mov cx, dx
-@@copy_data:	; Copy line to the screen
-	mov al, [es:di]
-	mov [ds:si], al
-	inc si
-	inc di
-	loop @@copy_data
+	rep movsb
 	
-	sub di,dx
-	add di, 320
+	sub si,dx
+	add si, 320
 	
 	pop cx
 	loop @@NextRow
 
+	pop ds es
 	popa
     ret
 endp putCubeInData
