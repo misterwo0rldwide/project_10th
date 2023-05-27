@@ -5,6 +5,18 @@ MODEL small
 
 STACK 100h
 
+; -- Lines --
+;Const -> 39 - 71
+;Variables -> 77 - 347
+;Main -> 351 - 383
+;Game main Functions -> 386 - 503
+;Files -> 505 - 754 
+;Screens -> 865 - 1508
+;Drawing -> 1509 - 2177
+;States of cube -> 2180 - 2880
+;Levels -> 2833 - 3919
+;Bmp matrix random and showAx -> 4058 - 4729
+
 ;For playing this game set DOSBOX to 10000 cycles
 ;cycles=10000
 
@@ -451,6 +463,45 @@ proc EndGame
 	popa
 	ret
 endp EndGame
+
+;================================================
+; Description -  checks two keys - space and escape
+; INPUT: key on keyboard
+; OUTPUT: activates other function in case space is pressed, in case escape it ends the game
+; Register Usage: None
+;================================================
+proc Key_Check
+	pusha
+	
+	mov ax, 3
+	int 33h
+	
+	cmp bx, 1 ; check if left mouse clicked
+	je @@jump
+	
+	in al, 60h ; read the key port to AL
+	
+	cmp al, 1h ; ESC
+	je @@exit_game
+	
+	cmp al, 39h ; space
+	je @@jump
+	
+	jmp @@end
+	
+@@exit_game:
+	mov [IsExit], 1
+	jmp @@end
+	
+@@jump:
+	cmp [can_jump], 0
+	je @@end ; if the bool 'can_jump' equals to one it means we are in the air so if mid air another jump was asked we wont confirm it
+	mov [Is_Going_up], 1
+
+@@end:
+	popa
+	ret
+endp Key_Check
 	
 ;================================================
 ; Description -  calculates the player score - seconds + bonus_points * 2
@@ -595,6 +646,115 @@ proc SetHighScore
 endp SetHighScore
 
 ;================================================
+; Description -  Takes the player score and turn it into readable number and put it in var
+; INPUT: None
+; OUTPUT: Four bytes in "PlayerScoreTXT" in DS
+; Register Usage: None
+;================================================
+proc ChangeScoreToTXT
+	pusha
+	
+	mov ax, [PlayerScoreRealNum]
+
+	mov si, offset PlayerScoreTXT + 3 ;go to the end of var
+	mov cx, 4
+	mov bx, 10 ; to div every time by ten
+@@change_to_text:
+	xor dx, dx
+	div bx
+	add dl, '0'
+	mov [byte si], dl ; put the modulu in si
+	dec si
+	loop @@change_to_text
+
+	popa
+	ret
+endp ChangeScoreToTXT
+
+;================================================
+; Description -  Writes all scores and best holder to the right place on screen
+; INPUT: None
+; OUTPUT: scores and name on screen
+; Register Usage: None
+;================================================
+proc WriteScore
+;our score
+	;we will change the place of the writing
+	mov ah, 2
+	xor bh, bh
+	mov dl, 25
+	mov dh, 7
+	int 10h
+	
+	call ChangeScoreToTXT
+	
+	mov dx, offset PlayerScoreTXT ; now we print
+	mov ah, 9
+	int 21h
+	
+;Best Score
+	mov ah, 2
+	xor bh, bh
+	mov dl, 25
+	mov dh, 8
+	int 10h
+	
+	mov dx, offset ScoreInFile ; highest score
+	mov ah, 9
+	int 21h
+	
+;now we print the holder
+	mov ah, 2
+	xor bh, bh
+	mov dl, 17
+	mov dh, 10
+	int 10h
+	
+	mov dl, '"' ; to make it look like a name we will print " "
+	mov ah, 2
+	int 21h
+	
+	cmp [bool_won], 1 ; we will see if the player has the best time
+	je @@write_player_name ; if so write the players' name to the screen
+	;if not write the file name to the screen
+	mov dx, offset FileScoreHolder
+	
+@@read:
+	mov ah, 3fh
+	mov bx, [FileHandleScores]
+	mov cx, 1
+	int 21h
+	mov si, dx
+	inc dx
+	cmp [byte si], 'x'
+	jne @@read
+	
+	mov [byte si], '$'
+	
+	mov ah, 9
+	mov dx, offset FileScoreHolder
+	int 21h
+	jmp @@end
+	
+@@write_player_name:
+	
+	xor bx, bx
+	mov bl, [NamePlayer + 1] ; get the length of the name
+	add bl, 2 ; add two because of the starting digits when using int 21h, 0ah 
+	mov [NamePlayer + bx], '$'
+	
+	mov ah, 9
+	mov dx, offset NamePlayer + 2
+	int 21h
+	
+@@end:
+	mov dl, '"'
+	mov ah, 2
+	int 21h
+	ret
+endp WriteScore
+
+;================================================
 ; Description -  delays the program according to the number that was pushed in stack
 ;				 this delay is not by milliseconds because the game is meant to be played in 10000 cycles
 ; INPUT: Number of delay time in stack
@@ -689,6 +849,20 @@ proc ChangeCursor
     pop dx ax cx bx
     ret
 endp ChangeCursor
+
+;================================================
+; Description -  sets to graphics mode
+; INPUT: None
+; OUTPUT: dos box set to graphics mode
+; Register Usage: None
+;================================================
+proc SetGraphics
+	push ax
+	mov ax, 13h
+	int 10h
+	pop ax
+	ret
+endp SetGraphics
 
 ;================================================
 ; Description -  for starting the game, it checks which of the three buttons was pressed by the mouse
@@ -1234,115 +1408,6 @@ proc Reset
 endp Reset
 
 ;================================================
-; Description -  Writes all scores and best holder to the right place on screen
-; INPUT: None
-; OUTPUT: scores and name on screen
-; Register Usage: None
-;================================================
-proc WriteScore
-;our score
-	;we will change the place of the writing
-	mov ah, 2
-	xor bh, bh
-	mov dl, 25
-	mov dh, 7
-	int 10h
-	
-	call ChangeScoreToTXT
-	
-	mov dx, offset PlayerScoreTXT ; now we print
-	mov ah, 9
-	int 21h
-	
-;Best Score
-	mov ah, 2
-	xor bh, bh
-	mov dl, 25
-	mov dh, 8
-	int 10h
-	
-	mov dx, offset ScoreInFile ; highest score
-	mov ah, 9
-	int 21h
-	
-;now we print the holder
-	mov ah, 2
-	xor bh, bh
-	mov dl, 17
-	mov dh, 10
-	int 10h
-	
-	mov dl, '"' ; to make it look like a name we will print " "
-	mov ah, 2
-	int 21h
-	
-	cmp [bool_won], 1 ; we will see if the player has the best time
-	je @@write_player_name ; if so write the players' name to the screen
-	;if not write the file name to the screen
-	mov dx, offset FileScoreHolder
-	
-@@read:
-	mov ah, 3fh
-	mov bx, [FileHandleScores]
-	mov cx, 1
-	int 21h
-	mov si, dx
-	inc dx
-	cmp [byte si], 'x'
-	jne @@read
-	
-	mov [byte si], '$'
-	
-	mov ah, 9
-	mov dx, offset FileScoreHolder
-	int 21h
-	jmp @@end
-	
-@@write_player_name:
-	
-	xor bx, bx
-	mov bl, [NamePlayer + 1] ; get the length of the name
-	add bl, 2 ; add two because of the starting digits when using int 21h, 0ah 
-	mov [NamePlayer + bx], '$'
-	
-	mov ah, 9
-	mov dx, offset NamePlayer + 2
-	int 21h
-	
-@@end:
-	mov dl, '"'
-	mov ah, 2
-	int 21h
-	ret
-endp WriteScore
-
-;================================================
-; Description -  Takes the player score and turn it into readable number and put it in var
-; INPUT: None
-; OUTPUT: Four bytes in "PlayerScoreTXT" in DS
-; Register Usage: None
-;================================================
-proc ChangeScoreToTXT
-	pusha
-	
-	mov ax, [PlayerScoreRealNum]
-
-	mov si, offset PlayerScoreTXT + 3 ;go to the end of var
-	mov cx, 4
-	mov bx, 10 ; to div every time by ten
-@@change_to_text:
-	xor dx, dx
-	div bx
-	add dl, '0'
-	mov [byte si], dl ; put the modulu in si
-	dec si
-	loop @@change_to_text
-
-	popa
-	ret
-endp ChangeScoreToTXT
-
-;================================================
 ; Description -  draws a picture of start screen
 ; INPUT: None
 ; OUTPUT: BMP picture on screen
@@ -1469,9 +1534,12 @@ proc DrawCube
 	
 	;size
 	mov cx, [CurrentSize] ; rows
-	mov dx, [CurrentSize] ; cols
+	mov dx, cx ; cols
 	
-	call Copy_Background_Cube ; we will copy the background firstly
+	mov bx, offset matrix_erase_cube ; the data will be stored here
+	mov [matrix], bx
+	
+	call putCubeInData ; copy the background
 	
 	pop bx
 	mov [matrix], bx
@@ -1668,7 +1736,7 @@ proc Erase_Cube
 	add di, Xpos_Cube
 	
 	mov cx, [CurrentSize]
-	mov dx, [CurrentSize]
+	mov dx, cx
 	
 	mov bx, offset matrix_erase_cube
 	mov [matrix], bx
@@ -1678,28 +1746,6 @@ proc Erase_Cube
 	popa
 	ret
 endp Erase_Cube
-
-;================================================
-; Description -  gets the sizes of the cube and calls another function that transfers the data on screen to data in DS
-; INPUT: None
-; OUTPUT: Saved background of cube in DS
-; Register Usage: None
-;================================================
-proc Copy_Background_Cube
-	pusha
-	
-	;the other parameters are calculated before
-	mov cx, [CurrentSize]
-	mov dx, [CurrentSize]
-	
-	mov bx, offset matrix_erase_cube ; the data will be stored here
-	mov [matrix], bx
-	
-	call putCubeInData
-	
-	popa
-	ret
-endp Copy_Background_Cube
 
 ;================================================
 ; Description -  checks if the block is on screen, if yes draws the cube and save their background - goes one by one and checks their X position
@@ -2085,7 +2131,9 @@ proc DrawPoint
 	mov cx, 11 ; height
 	mov dx, 6 ; width
 
-	call Copy_Background_Points ; copy the background
+	mov bx, offset matrix_erase_point
+	mov [matrix], bx
+	call putMatrixInData  ; copy the background
 	
 	mov bx, offset matrix_bonus ; now we change it to draw
 	mov [matrix], bx
@@ -2096,21 +2144,6 @@ proc DrawPoint
 	popa
 	ret
 endp DrawPoint
-
-;================================================
-; Description - copies the bacgkround of the point
-; INPUT: None
-; OUTPUT: saved bacgkround as a matrix in DS
-; Register Usage: None
-;================================================
-proc Copy_Background_Points
-
-	mov bx, offset matrix_erase_point
-	mov [matrix], bx
-	call putMatrixInData
-
-	ret
-endp Copy_Background_Points
 
 ;================================================
 ; Description - prints the saved background on point
@@ -2144,45 +2177,6 @@ proc Erase_point
 	popa
 	ret
 endp Erase_point
-
-;================================================
-; Description -  checks two keys - space and escape
-; INPUT: key on keyboard
-; OUTPUT: activates other function in case space is pressed, in case escape it ends the game
-; Register Usage: None
-;================================================
-proc Key_Check
-	pusha
-	
-	mov ax, 3
-	int 33h
-	
-	cmp bx, 1 ; check if left mouse clicked
-	je @@jump
-	
-	in al, 60h ; read the key port to AL
-	
-	cmp al, 1h ; ESC
-	je @@exit_game
-	
-	cmp al, 39h ; space
-	je @@jump
-	
-	jmp @@end
-	
-@@exit_game:
-	mov [IsExit], 1
-	jmp @@end
-	
-@@jump:
-	cmp [can_jump], 0
-	je @@end ; if the bool 'can_jump' equals to one it means we are in the air so if mid air another jump was asked we wont confirm it
-	mov [Is_Going_up], 1
-
-@@end:
-	popa
-	ret
-endp Key_Check
 
 ;================================================
 ; Description -  checks if there is white or black under the cube - if yes there is floor
@@ -2749,7 +2743,7 @@ proc Cube_Ascend
 	
 @@slow:
 	
-	sub [Ypos], 3
+	sub [Ypos], 2
 	jmp @@end
 	
 @@stop_up:
@@ -4134,7 +4128,7 @@ endp CloseBmpFile
 ; OUTPUT: open the file
 ; Register Usage: None
 ;================================================
-proc OpenBmpFile	near						 
+proc OpenBmpFile near						 
 	mov ah, 3Dh
 	xor al, al
 	int 21h
@@ -4154,7 +4148,7 @@ endp OpenBmpFile
 ; OUTPUT: Header stored in DS
 ; Register Usage: None
 ;================================================
-proc ReadBmpHeader	near					
+proc ReadBmpHeader near					
 	push cx dx
 	
 	mov ah,3fh
@@ -4405,20 +4399,6 @@ exitError:
 endp DrawPictureBmp
 
 ;================================================
-; Description -  sets to graphics mode
-; INPUT: None
-; OUTPUT: dos box set to graphics mode
-; Register Usage: None
-;================================================
-proc SetGraphics
-	push ax
-	mov ax, 13h
-	int 10h
-	pop ax
-	ret
-endp SetGraphics
-
-;================================================
 ; Description - for using an objects that has even number of width (bacuse we can use rep movsw), it will put the given matrix on screen
 ; INPUT: "matrix" - offset of matrix, CX col size, DX row size and DI place on screen
 ; OUTPUT: puts the matrix bytes on screen
@@ -4455,7 +4435,7 @@ proc putMatrixInScreen
 endp putMatrixInScreen
 
 ;================================================
-; Description - prints matrix upside down, used for printing triangles upside down
+; Description - prints matrix upside down, used for printing triangles upside down, this also uses the "invisble" color (color number one in pallete)
 ; INPUT: "matrix" - offset of matrix, CX col size, DX row size and DI place on screen
 ; OUTPUT: puts the matrix bytes on screen upside down
 ; Register Usage: None
@@ -4463,9 +4443,8 @@ endp putMatrixInScreen
 proc putMatrixInScreenUpsideDown
 	pusha
 	
-	mov ax, 0A000h
-	mov es, ax
-	cld
+	push 0A000h
+	pop es
 	
 	mov si,[matrix]
 	
@@ -4485,11 +4464,11 @@ proc putMatrixInScreenUpsideDown
 	mov cx, dx
 	
 @@draw_line:	; Copy line to the screen
-	lodsb
+	lodsb ; AL = [DS:SI] then inc si
 	cmp al, 1
 	je @@end ; if it is equal to one we need to skip it
-	stosb
-	dec di
+	stosb ; [ES:DI] = AL then inc di
+	dec di ; because stosb inc di itself and stosb does not
 @@end:
 	inc di
 	loop @@draw_line
@@ -4562,7 +4541,6 @@ proc putCubeInScreen
 	
 	mov ax, 0A000h
 	mov es, ax
-	cld
 	
 	mov si,[matrix]
 	
